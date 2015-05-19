@@ -1,12 +1,11 @@
-// Copyright 2013-2014 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
+// Copyright 2015 The Rust Project Developers. See the COPYRIGHT file at the
+// top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
+// or http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Thread-local reference-counted boxes (the `Cc<T>` type).
 //!
@@ -150,8 +149,19 @@
 
 #![feature(alloc)]
 #![feature(core)]
+#![feature(custom_derive)]
 #![feature(filling_drop)]
+#![feature(plugin)]
+#![feature(plugin_registrar)]
+#![feature(quote)]
+#![feature(rustc_private)]
+#![feature(trace_macros)]
 #![feature(unsafe_no_drop_flag)]
+
+#[macro_use]
+extern crate syntax;
+#[macro_use]
+extern crate rustc;
 
 use std::boxed;
 
@@ -174,6 +184,10 @@ use core::intrinsics::assume;
 
 extern crate alloc;
 use alloc::heap::deallocate;
+
+/// TODO FITZGEN
+pub mod trace_plugin;
+pub use trace_plugin::*;
 
 struct CcBox<T> {
     value: T,
@@ -782,9 +796,17 @@ impl<T> CcBoxPtr<T> for Weak<T> {
     }
 }
 
+pub type Tracer = FnMut(&CcTrace);
+
+pub trait CcTrace: fmt::Debug {
+    fn trace(&self, tracer: &mut Tracer);
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Cc, Weak, weak_count, strong_count};
+    #![plugin(bacon_rajan_cc)]
+
+    use super::{Cc, CcTrace, Weak, weak_count, strong_count};
     use std::boxed::Box;
     use std::cell::RefCell;
     use std::option::Option;
@@ -792,6 +814,32 @@ mod tests {
     use std::result::Result::{Err, Ok};
     use std::mem::drop;
     use std::clone::Clone;
+
+    // trace_macros!(true);
+
+    // #[derive(CcTrace, Debug)]
+    // struct CycleCollected {
+    //     a: Cc<u32>,
+    //     b: Cc<String>,
+    // }
+
+    // trace_macros!(false);
+
+    // #[test]
+    // fn test_plugin() {
+    //     let x = CycleCollected {
+    //         a: Cc::new(5),
+    //         b: Cc::new("hello".into()),
+    //     };
+
+    //     CcTrace::trace(&x, &mut |v| {
+    //         println!("traced {:?}", v);
+    //     });
+
+    //     assert!(false);
+    // }
+
+    // Tests copied from `Rc<T>`.
 
     #[test]
     fn test_clone() {
@@ -988,5 +1036,4 @@ mod tests {
         let foo = Cc::new(75);
         assert_eq!(format!("{:?}", foo), "75");
     }
-
 }
