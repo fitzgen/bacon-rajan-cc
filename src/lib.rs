@@ -8,19 +8,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! Thread-local reference-counted boxes (the `Rc<T>` type).
+//! Thread-local reference-counted boxes (the `Cc<T>` type).
 //!
-//! The `Rc<T>` type provides shared ownership of an immutable value.
+//! The `Cc<T>` type provides shared ownership of an immutable value.
 //! Destruction is deterministic, and will occur as soon as the last owner is
 //! gone. It is marked as non-sendable because it avoids the overhead of atomic
 //! reference counting.
 //!
 //! The `downgrade` method can be used to create a non-owning `Weak<T>` pointer
-//! to the box. A `Weak<T>` pointer can be upgraded to an `Rc<T>` pointer, but
+//! to the box. A `Weak<T>` pointer can be upgraded to an `Cc<T>` pointer, but
 //! will return `None` if the value has already been dropped.
 //!
 //! For example, a tree with parent pointers can be represented by putting the
-//! nodes behind strong `Rc<T>` pointers, and then storing the parent pointers
+//! nodes behind strong `Cc<T>` pointers, and then storing the parent pointers
 //! as `Weak<T>` pointers.
 //!
 //! # Examples
@@ -28,12 +28,12 @@
 //! Consider a scenario where a set of `Gadget`s are owned by a given `Owner`.
 //! We want to have our `Gadget`s point to their `Owner`. We can't do this with
 //! unique ownership, because more than one gadget may belong to the same
-//! `Owner`. `Rc<T>` allows us to share an `Owner` between multiple `Gadget`s,
+//! `Owner`. `Cc<T>` allows us to share an `Owner` between multiple `Gadget`s,
 //! and have the `Owner` remain allocated as long as any `Gadget` points at it.
 //!
 //! ```rust
 //! # #![feature(alloc, collections)]
-//! use std::rc::Rc;
+//! use bacon_rajan_cc::Cc;
 //!
 //! struct Owner {
 //!     name: String
@@ -42,18 +42,18 @@
 //!
 //! struct Gadget {
 //!     id: i32,
-//!     owner: Rc<Owner>
+//!     owner: Cc<Owner>
 //!     // ...other fields
 //! }
 //!
 //! fn main() {
 //!     // Create a reference counted Owner.
-//!     let gadget_owner : Rc<Owner> = Rc::new(
+//!     let gadget_owner : Cc<Owner> = Cc::new(
 //!             Owner { name: String::from_str("Gadget Man") }
 //!     );
 //!
 //!     // Create Gadgets belonging to gadget_owner. To increment the reference
-//!     // count we clone the `Rc<T>` object.
+//!     // count we clone the `Cc<T>` object.
 //!     let gadget1 = Gadget { id: 1, owner: gadget_owner.clone() };
 //!     let gadget2 = Gadget { id: 2, owner: gadget_owner.clone() };
 //!
@@ -62,8 +62,8 @@
 //!     // Despite dropping gadget_owner, we're still able to print out the name
 //!     // of the Owner of the Gadgets. This is because we've only dropped the
 //!     // reference count object, not the Owner it wraps. As long as there are
-//!     // other `Rc<T>` objects pointing at the same Owner, it will remain
-//!     // allocated. Notice that the `Rc<T>` wrapper around Gadget.owner gets
+//!     // other `Cc<T>` objects pointing at the same Owner, it will remain
+//!     // allocated. Notice that the `Cc<T>` wrapper around Gadget.owner gets
 //!     // automatically dereferenced for us.
 //!     println!("Gadget {} owned by {}", gadget1.id, gadget1.owner.name);
 //!     println!("Gadget {} owned by {}", gadget2.id, gadget2.owner.name);
@@ -75,7 +75,7 @@
 //! ```
 //!
 //! If our requirements change, and we also need to be able to traverse from
-//! Owner → Gadget, we will run into problems: an `Rc<T>` pointer from Owner
+//! Owner → Gadget, we will run into problems: an `Cc<T>` pointer from Owner
 //! → Gadget introduces a cycle between the objects. This means that their
 //! reference counts can never reach 0, and the objects will remain allocated: a
 //! memory leak. In order to get around this, we can use `Weak<T>` pointers.
@@ -83,7 +83,7 @@
 //!
 //! Rust actually makes it somewhat difficult to produce this loop in the first
 //! place: in order to end up with two objects that point at each other, one of
-//! them needs to be mutable. This is problematic because `Rc<T>` enforces
+//! them needs to be mutable. This is problematic because `Cc<T>` enforces
 //! memory safety by only giving out shared references to the object it wraps,
 //! and these don't allow direct mutation. We need to wrap the part of the
 //! object we wish to mutate in a `RefCell`, which provides *interior
@@ -93,8 +93,8 @@
 //!
 //! ```rust
 //! # #![feature(alloc)]
-//! use std::rc::Rc;
-//! use std::rc::Weak;
+//! use bacon_rajan_cc::Cc;
+//! use bacon_rajan_cc::Weak;
 //! use std::cell::RefCell;
 //!
 //! struct Owner {
@@ -105,7 +105,7 @@
 //!
 //! struct Gadget {
 //!     id: i32,
-//!     owner: Rc<Owner>
+//!     owner: Cc<Owner>
 //!     // ...other fields
 //! }
 //!
@@ -113,7 +113,7 @@
 //!     // Create a reference counted Owner. Note the fact that we've put the
 //!     // Owner's vector of Gadgets inside a RefCell so that we can mutate it
 //!     // through a shared reference.
-//!     let gadget_owner : Rc<Owner> = Rc::new(
+//!     let gadget_owner : Cc<Owner> = Cc::new(
 //!             Owner {
 //!                 name: "Gadget Man".to_string(),
 //!                 gadgets: RefCell::new(Vec::new())
@@ -121,8 +121,8 @@
 //!     );
 //!
 //!     // Create Gadgets belonging to gadget_owner as before.
-//!     let gadget1 = Rc::new(Gadget{id: 1, owner: gadget_owner.clone()});
-//!     let gadget2 = Rc::new(Gadget{id: 2, owner: gadget_owner.clone()});
+//!     let gadget1 = Cc::new(Gadget{id: 1, owner: gadget_owner.clone()});
+//!     let gadget2 = Cc::new(Gadget{id: 2, owner: gadget_owner.clone()});
 //!
 //!     // Add the Gadgets to their Owner. To do this we mutably borrow from
 //!     // the RefCell holding the Owner's Gadgets.
@@ -142,7 +142,7 @@
 //!     }
 //!
 //!     // At the end of the method, gadget_owner, gadget1 and gadget2 get
-//!     // destroyed. There are now no strong (`Rc<T>`) references to the gadgets.
+//!     // destroyed. There are now no strong (`Cc<T>`) references to the gadgets.
 //!     // Once they get destroyed, the Gadgets get destroyed. This zeroes the
 //!     // reference count on Gadget Man, so he gets destroyed as well.
 //! }
@@ -175,7 +175,7 @@ use core::intrinsics::assume;
 extern crate alloc;
 use alloc::heap::deallocate;
 
-struct RcBox<T> {
+struct CcBox<T> {
     value: T,
     strong: Cell<usize>,
     weak: Cell<usize>
@@ -185,30 +185,30 @@ struct RcBox<T> {
 ///
 /// See the [module level documentation](./) for more details.
 #[unsafe_no_drop_flag]
-pub struct Rc<T> {
+pub struct Cc<T> {
     // FIXME #12808: strange names to try to avoid interfering with field
     // accesses of the contained type via Deref
-    _ptr: NonZero<*mut RcBox<T>>,
+    _ptr: NonZero<*mut CcBox<T>>,
 }
 
-impl<T> Rc<T> {
-    /// Constructs a new `Rc<T>`.
+impl<T> Cc<T> {
+    /// Constructs a new `Cc<T>`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     /// ```
-    pub fn new(value: T) -> Rc<T> {
+    pub fn new(value: T) -> Cc<T> {
         unsafe {
-            Rc {
+            Cc {
                 // there is an implicit weak pointer owned by all the strong
                 // pointers, which ensures that the weak destructor never frees
                 // the allocation while the strong destructor is running, even
                 // if the weak pointer is stored inside the strong one.
-                _ptr: NonZero::new(boxed::into_raw(Box::new(RcBox {
+                _ptr: NonZero::new(boxed::into_raw(Box::new(CcBox {
                     value: value,
                     strong: Cell::new(1),
                     weak: Cell::new(1)
@@ -217,15 +217,15 @@ impl<T> Rc<T> {
         }
     }
 
-    /// Downgrades the `Rc<T>` to a `Weak<T>` reference.
+    /// Downgrades the `Cc<T>` to a `Weak<T>` reference.
     ///
     /// # Examples
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
     /// let weak_five = five.downgrade();
     /// ```
@@ -237,57 +237,57 @@ impl<T> Rc<T> {
 
 /// Get the number of weak references to this value.
 #[inline]
-pub fn weak_count<T>(this: &Rc<T>) -> usize { this.weak() - 1 }
+pub fn weak_count<T>(this: &Cc<T>) -> usize { this.weak() - 1 }
 
 /// Get the number of strong references to this value.
 #[inline]
-pub fn strong_count<T>(this: &Rc<T>) -> usize { this.strong() }
+pub fn strong_count<T>(this: &Cc<T>) -> usize { this.strong() }
 
-/// Returns true if there are no other `Rc` or `Weak<T>` values that share the
+/// Returns true if there are no other `Cc` or `Weak<T>` values that share the
 /// same inner value.
 ///
 /// # Examples
 ///
 /// ```
 /// # #![feature(alloc)]
-/// use std::rc;
-/// use std::rc::Rc;
+/// use bacon_rajan_cc;
+/// use bacon_rajan_cc::Cc;
 ///
-/// let five = Rc::new(5);
+/// let five = Cc::new(5);
 ///
-/// rc::is_unique(&five);
+/// bacon_rajan_cc::is_unique(&five);
 /// ```
 #[inline]
-pub fn is_unique<T>(rc: &Rc<T>) -> bool {
+pub fn is_unique<T>(rc: &Cc<T>) -> bool {
     weak_count(rc) == 0 && strong_count(rc) == 1
 }
 
-/// Unwraps the contained value if the `Rc<T>` is unique.
+/// Unwraps the contained value if the `Cc<T>` is unique.
 ///
-/// If the `Rc<T>` is not unique, an `Err` is returned with the same `Rc<T>`.
+/// If the `Cc<T>` is not unique, an `Err` is returned with the same `Cc<T>`.
 ///
 /// # Examples
 ///
 /// ```
 /// # #![feature(alloc)]
-/// use std::rc::{self, Rc};
+/// use bacon_rajan_cc::{self, Cc};
 ///
-/// let x = Rc::new(3);
-/// assert_eq!(rc::try_unwrap(x), Ok(3));
+/// let x = Cc::new(3);
+/// assert_eq!(bacon_rajan_cc::try_unwrap(x), Ok(3));
 ///
-/// let x = Rc::new(4);
+/// let x = Cc::new(4);
 /// let _y = x.clone();
-/// assert_eq!(rc::try_unwrap(x), Err(Rc::new(4)));
+/// assert_eq!(bacon_rajan_cc::try_unwrap(x), Err(Cc::new(4)));
 /// ```
 #[inline]
-pub fn try_unwrap<T>(rc: Rc<T>) -> Result<T, Rc<T>> {
+pub fn try_unwrap<T>(rc: Cc<T>) -> Result<T, Cc<T>> {
     if is_unique(&rc) {
         unsafe {
             let val = ptr::read(&*rc); // copy the contained object
             // destruct the box and skip our Drop
             // we can ignore the refcounts because we know we're unique
-            deallocate(*rc._ptr as *mut u8, size_of::<RcBox<T>>(),
-                        min_align_of::<RcBox<T>>());
+            deallocate(*rc._ptr as *mut u8, size_of::<CcBox<T>>(),
+                        min_align_of::<CcBox<T>>());
             forget(rc);
             Ok(val)
         }
@@ -296,25 +296,25 @@ pub fn try_unwrap<T>(rc: Rc<T>) -> Result<T, Rc<T>> {
     }
 }
 
-/// Returns a mutable reference to the contained value if the `Rc<T>` is unique.
+/// Returns a mutable reference to the contained value if the `Cc<T>` is unique.
 ///
-/// Returns `None` if the `Rc<T>` is not unique.
+/// Returns `None` if the `Cc<T>` is not unique.
 ///
 /// # Examples
 ///
 /// ```
 /// # #![feature(alloc)]
-/// use std::rc::{self, Rc};
+/// use bacon_rajan_cc::{self, Cc};
 ///
-/// let mut x = Rc::new(3);
-/// *rc::get_mut(&mut x).unwrap() = 4;
+/// let mut x = Cc::new(3);
+/// *bacon_rajan_cc::get_mut(&mut x).unwrap() = 4;
 /// assert_eq!(*x, 4);
 ///
 /// let _y = x.clone();
-/// assert!(rc::get_mut(&mut x).is_none());
+/// assert!(bacon_rajan_cc::get_mut(&mut x).is_none());
 /// ```
 #[inline]
-pub fn get_mut<T>(rc: &mut Rc<T>) -> Option<&mut T> {
+pub fn get_mut<T>(rc: &mut Cc<T>) -> Option<&mut T> {
     if is_unique(rc) {
         let inner = unsafe { &mut **rc._ptr };
         Some(&mut inner.value)
@@ -323,8 +323,8 @@ pub fn get_mut<T>(rc: &mut Rc<T>) -> Option<&mut T> {
     }
 }
 
-impl<T: Clone> Rc<T> {
-    /// Make a mutable reference from the given `Rc<T>`.
+impl<T: Clone> Cc<T> {
+    /// Make a mutable reference from the given `Cc<T>`.
     ///
     /// This is also referred to as a copy-on-write operation because the inner
     /// data is cloned if the reference count is greater than one.
@@ -333,28 +333,28 @@ impl<T: Clone> Rc<T> {
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let mut five = Rc::new(5);
+    /// let mut five = Cc::new(5);
     ///
     /// let mut_five = five.make_unique();
     /// ```
     #[inline]
     pub fn make_unique(&mut self) -> &mut T {
         if !is_unique(self) {
-            *self = Rc::new((**self).clone())
+            *self = Cc::new((**self).clone())
         }
         // This unsafety is ok because we're guaranteed that the pointer
         // returned is the *only* pointer that will ever be returned to T. Our
         // reference count is guaranteed to be 1 at this point, and we required
-        // the `Rc<T>` itself to be `mut`, so we're returning the only possible
+        // the `Cc<T>` itself to be `mut`, so we're returning the only possible
         // reference to the inner value.
         let inner = unsafe { &mut **self._ptr };
         &mut inner.value
     }
 }
 
-impl<T> Deref for Rc<T> {
+impl<T> Deref for Cc<T> {
     type Target = T;
 
     #[inline(always)]
@@ -363,8 +363,8 @@ impl<T> Deref for Rc<T> {
     }
 }
 
-impl<T> Drop for Rc<T> {
-    /// Drops the `Rc<T>`.
+impl<T> Drop for Cc<T> {
+    /// Drops the `Cc<T>`.
     ///
     /// This will decrement the strong reference count. If the strong reference
     /// count becomes zero and the only other references are `Weak<T>` ones,
@@ -374,17 +374,17 @@ impl<T> Drop for Rc<T> {
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
     /// {
-    ///     let five = Rc::new(5);
+    ///     let five = Cc::new(5);
     ///
     ///     // stuff
     ///
     ///     drop(five); // explicit drop
     /// }
     /// {
-    ///     let five = Rc::new(5);
+    ///     let five = Cc::new(5);
     ///
     ///     // stuff
     ///
@@ -403,8 +403,8 @@ impl<T> Drop for Rc<T> {
                     self.dec_weak();
 
                     if self.weak() == 0 {
-                        deallocate(ptr as *mut u8, size_of::<RcBox<T>>(),
-                                   min_align_of::<RcBox<T>>())
+                        deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
+                                   min_align_of::<CcBox<T>>())
                     }
                 }
             }
@@ -412,210 +412,210 @@ impl<T> Drop for Rc<T> {
     }
 }
 
-impl<T> Clone for Rc<T> {
+impl<T> Clone for Cc<T> {
 
-    /// Makes a clone of the `Rc<T>`.
+    /// Makes a clone of the `Cc<T>`.
     ///
-    /// When you clone an `Rc<T>`, it will create another pointer to the data and
+    /// When you clone an `Cc<T>`, it will create another pointer to the data and
     /// increase the strong reference counter.
     ///
     /// # Examples
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
     /// five.clone();
     /// ```
     #[inline]
-    fn clone(&self) -> Rc<T> {
+    fn clone(&self) -> Cc<T> {
         self.inc_strong();
-        Rc { _ptr: self._ptr }
+        Cc { _ptr: self._ptr }
     }
 }
 
-impl<T: Default> Default for Rc<T> {
-    /// Creates a new `Rc<T>`, with the `Default` value for `T`.
+impl<T: Default> Default for Cc<T> {
+    /// Creates a new `Cc<T>`, with the `Default` value for `T`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let x: Rc<i32> = Default::default();
+    /// let x: Cc<i32> = Default::default();
     /// ```
     #[inline]
-    fn default() -> Rc<T> {
-        Rc::new(Default::default())
+    fn default() -> Cc<T> {
+        Cc::new(Default::default())
     }
 }
 
-impl<T: PartialEq> PartialEq for Rc<T> {
-    /// Equality for two `Rc<T>`s.
+impl<T: PartialEq> PartialEq for Cc<T> {
+    /// Equality for two `Cc<T>`s.
     ///
-    /// Two `Rc<T>`s are equal if their inner value are equal.
+    /// Two `Cc<T>`s are equal if their inner value are equal.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five == Rc::new(5);
+    /// five == Cc::new(5);
     /// ```
     #[inline(always)]
-    fn eq(&self, other: &Rc<T>) -> bool { **self == **other }
+    fn eq(&self, other: &Cc<T>) -> bool { **self == **other }
 
-    /// Inequality for two `Rc<T>`s.
+    /// Inequality for two `Cc<T>`s.
     ///
-    /// Two `Rc<T>`s are unequal if their inner value are unequal.
+    /// Two `Cc<T>`s are unequal if their inner value are unequal.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five != Rc::new(5);
+    /// five != Cc::new(5);
     /// ```
     #[inline(always)]
-    fn ne(&self, other: &Rc<T>) -> bool { **self != **other }
+    fn ne(&self, other: &Cc<T>) -> bool { **self != **other }
 }
 
-impl<T: Eq> Eq for Rc<T> {}
+impl<T: Eq> Eq for Cc<T> {}
 
-impl<T: PartialOrd> PartialOrd for Rc<T> {
-    /// Partial comparison for two `Rc<T>`s.
+impl<T: PartialOrd> PartialOrd for Cc<T> {
+    /// Partial comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `partial_cmp()` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five.partial_cmp(&Rc::new(5));
+    /// five.partial_cmp(&Cc::new(5));
     /// ```
     #[inline(always)]
-    fn partial_cmp(&self, other: &Rc<T>) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Cc<T>) -> Option<Ordering> {
         (**self).partial_cmp(&**other)
     }
 
-    /// Less-than comparison for two `Rc<T>`s.
+    /// Less-than comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `<` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five < Rc::new(5);
+    /// five < Cc::new(5);
     /// ```
     #[inline(always)]
-    fn lt(&self, other: &Rc<T>) -> bool { **self < **other }
+    fn lt(&self, other: &Cc<T>) -> bool { **self < **other }
 
-    /// 'Less-than or equal to' comparison for two `Rc<T>`s.
+    /// 'Less-than or equal to' comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `<=` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five <= Rc::new(5);
+    /// five <= Cc::new(5);
     /// ```
     #[inline(always)]
-    fn le(&self, other: &Rc<T>) -> bool { **self <= **other }
+    fn le(&self, other: &Cc<T>) -> bool { **self <= **other }
 
-    /// Greater-than comparison for two `Rc<T>`s.
+    /// Greater-than comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `>` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five > Rc::new(5);
+    /// five > Cc::new(5);
     /// ```
     #[inline(always)]
-    fn gt(&self, other: &Rc<T>) -> bool { **self > **other }
+    fn gt(&self, other: &Cc<T>) -> bool { **self > **other }
 
-    /// 'Greater-than or equal to' comparison for two `Rc<T>`s.
+    /// 'Greater-than or equal to' comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `>=` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five >= Rc::new(5);
+    /// five >= Cc::new(5);
     /// ```
     #[inline(always)]
-    fn ge(&self, other: &Rc<T>) -> bool { **self >= **other }
+    fn ge(&self, other: &Cc<T>) -> bool { **self >= **other }
 }
 
-impl<T: Ord> Ord for Rc<T> {
-    /// Comparison for two `Rc<T>`s.
+impl<T: Ord> Ord for Cc<T> {
+    /// Comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `cmp()` on their inner values.
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
-    /// five.partial_cmp(&Rc::new(5));
+    /// five.partial_cmp(&Cc::new(5));
     /// ```
     #[inline]
-    fn cmp(&self, other: &Rc<T>) -> Ordering { (**self).cmp(&**other) }
+    fn cmp(&self, other: &Cc<T>) -> Ordering { (**self).cmp(&**other) }
 }
 
 // FIXME (#18248) Make `T` `Sized?`
-impl<T: Hash> Hash for Rc<T> {
+impl<T: Hash> Hash for Cc<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (**self).hash(state);
     }
 }
 
-impl<T: fmt::Display> fmt::Display for Rc<T> {
+impl<T: fmt::Display> fmt::Display for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Rc<T> {
+impl<T: fmt::Debug> fmt::Debug for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T> fmt::Pointer for Rc<T> {
+impl<T> fmt::Pointer for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Pointer::fmt(&*self._ptr, f)
     }
 }
 
-/// A weak version of `Rc<T>`.
+/// A weak version of `Cc<T>`.
 ///
 /// Weak references do not count when determining if the inner value should be
 /// dropped.
@@ -625,14 +625,14 @@ impl<T> fmt::Pointer for Rc<T> {
 pub struct Weak<T> {
     // FIXME #12808: strange names to try to avoid interfering with
     // field accesses of the contained type via Deref
-    _ptr: NonZero<*mut RcBox<T>>,
+    _ptr: NonZero<*mut CcBox<T>>,
 }
 
 impl<T> Weak<T> {
 
     /// Upgrades a weak reference to a strong reference.
     ///
-    /// Upgrades the `Weak<T>` reference to an `Rc<T>`, if possible.
+    /// Upgrades the `Weak<T>` reference to an `Cc<T>`, if possible.
     ///
     /// Returns `None` if there were no strong references and the data was
     /// destroyed.
@@ -641,20 +641,20 @@ impl<T> Weak<T> {
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let five = Rc::new(5);
+    /// let five = Cc::new(5);
     ///
     /// let weak_five = five.downgrade();
     ///
-    /// let strong_five: Option<Rc<_>> = weak_five.upgrade();
+    /// let strong_five: Option<Cc<_>> = weak_five.upgrade();
     /// ```
-    pub fn upgrade(&self) -> Option<Rc<T>> {
+    pub fn upgrade(&self) -> Option<Cc<T>> {
         if self.strong() == 0 {
             None
         } else {
             self.inc_strong();
-            Some(Rc { _ptr: self._ptr })
+            Some(Cc { _ptr: self._ptr })
         }
     }
 }
@@ -668,10 +668,10 @@ impl<T> Drop for Weak<T> {
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
     /// {
-    ///     let five = Rc::new(5);
+    ///     let five = Cc::new(5);
     ///     let weak_five = five.downgrade();
     ///
     ///     // stuff
@@ -679,7 +679,7 @@ impl<T> Drop for Weak<T> {
     ///     drop(weak_five); // explicit drop
     /// }
     /// {
-    ///     let five = Rc::new(5);
+    ///     let five = Cc::new(5);
     ///     let weak_five = five.downgrade();
     ///
     ///     // stuff
@@ -694,8 +694,8 @@ impl<T> Drop for Weak<T> {
                 // the weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
-                    deallocate(ptr as *mut u8, size_of::<RcBox<T>>(),
-                               min_align_of::<RcBox<T>>())
+                    deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
+                               min_align_of::<CcBox<T>>())
                 }
             }
         }
@@ -712,9 +712,9 @@ impl<T> Clone for Weak<T> {
     ///
     /// ```
     /// # #![feature(alloc)]
-    /// use std::rc::Rc;
+    /// use bacon_rajan_cc::Cc;
     ///
-    /// let weak_five = Rc::new(5).downgrade();
+    /// let weak_five = Cc::new(5).downgrade();
     ///
     /// weak_five.clone();
     /// ```
@@ -732,8 +732,8 @@ impl<T: fmt::Debug> fmt::Debug for Weak<T> {
 }
 
 #[doc(hidden)]
-trait RcBoxPtr<T> {
-    fn inner(&self) -> &RcBox<T>;
+trait CcBoxPtr<T> {
+    fn inner(&self) -> &CcBox<T>;
 
     #[inline]
     fn strong(&self) -> usize { self.inner().strong.get() }
@@ -754,9 +754,9 @@ trait RcBoxPtr<T> {
     fn dec_weak(&self) { self.inner().weak.set(self.weak() - 1); }
 }
 
-impl<T> RcBoxPtr<T> for Rc<T> {
+impl<T> CcBoxPtr<T> for Cc<T> {
     #[inline(always)]
-    fn inner(&self) -> &RcBox<T> {
+    fn inner(&self) -> &CcBox<T> {
         unsafe {
             // Safe to assume this here, as if it weren't true, we'd be breaking
             // the contract anyway.
@@ -768,9 +768,9 @@ impl<T> RcBoxPtr<T> for Rc<T> {
     }
 }
 
-impl<T> RcBoxPtr<T> for Weak<T> {
+impl<T> CcBoxPtr<T> for Weak<T> {
     #[inline(always)]
-    fn inner(&self) -> &RcBox<T> {
+    fn inner(&self) -> &CcBox<T> {
         unsafe {
             // Safe to assume this here, as if it weren't true, we'd be breaking
             // the contract anyway.
@@ -784,7 +784,7 @@ impl<T> RcBoxPtr<T> for Weak<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Rc, Weak, weak_count, strong_count};
+    use super::{Cc, Weak, weak_count, strong_count};
     use std::boxed::Box;
     use std::cell::RefCell;
     use std::option::Option;
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let x = Rc::new(RefCell::new(5));
+        let x = Cc::new(RefCell::new(5));
         let y = x.clone();
         *x.borrow_mut() = 20;
         assert_eq!(*y.borrow(), 20);
@@ -803,13 +803,13 @@ mod tests {
 
     #[test]
     fn test_simple() {
-        let x = Rc::new(5);
+        let x = Cc::new(5);
         assert_eq!(*x, 5);
     }
 
     #[test]
     fn test_simple_clone() {
-        let x = Rc::new(5);
+        let x = Cc::new(5);
         let y = x.clone();
         assert_eq!(*x, 5);
         assert_eq!(*y, 5);
@@ -817,20 +817,20 @@ mod tests {
 
     #[test]
     fn test_destructor() {
-        let x: Rc<Box<_>> = Rc::new(Box::new(5));
+        let x: Cc<Box<_>> = Cc::new(Box::new(5));
         assert_eq!(**x, 5);
     }
 
     #[test]
     fn test_live() {
-        let x = Rc::new(5);
+        let x = Cc::new(5);
         let y = x.downgrade();
         assert!(y.upgrade().is_some());
     }
 
     #[test]
     fn test_dead() {
-        let x = Rc::new(5);
+        let x = Cc::new(5);
         let y = x.downgrade();
         drop(x);
         assert!(y.upgrade().is_none());
@@ -842,7 +842,7 @@ mod tests {
             x: RefCell<Option<Weak<Cycle>>>
         }
 
-        let a = Rc::new(Cycle { x: RefCell::new(None) });
+        let a = Cc::new(Cycle { x: RefCell::new(None) });
         let b = a.clone().downgrade();
         *a.x.borrow_mut() = Some(b);
 
@@ -851,7 +851,7 @@ mod tests {
 
     #[test]
     fn is_unique() {
-        let x = Rc::new(3);
+        let x = Cc::new(3);
         assert!(super::is_unique(&x));
         let y = x.clone();
         assert!(!super::is_unique(&x));
@@ -865,7 +865,7 @@ mod tests {
 
     #[test]
     fn test_strong_count() {
-        let a = Rc::new(0u32);
+        let a = Cc::new(0u32);
         assert!(strong_count(&a) == 1);
         let w = a.downgrade();
         assert!(strong_count(&a) == 1);
@@ -882,7 +882,7 @@ mod tests {
 
     #[test]
     fn test_weak_count() {
-        let a = Rc::new(0u32);
+        let a = Cc::new(0u32);
         assert!(strong_count(&a) == 1);
         assert!(weak_count(&a) == 0);
         let w = a.downgrade();
@@ -899,19 +899,19 @@ mod tests {
 
     #[test]
     fn try_unwrap() {
-        let x = Rc::new(3);
+        let x = Cc::new(3);
         assert_eq!(super::try_unwrap(x), Ok(3));
-        let x = Rc::new(4);
+        let x = Cc::new(4);
         let _y = x.clone();
-        assert_eq!(super::try_unwrap(x), Err(Rc::new(4)));
-        let x = Rc::new(5);
+        assert_eq!(super::try_unwrap(x), Err(Cc::new(4)));
+        let x = Cc::new(5);
         let _w = x.downgrade();
-        assert_eq!(super::try_unwrap(x), Err(Rc::new(5)));
+        assert_eq!(super::try_unwrap(x), Err(Cc::new(5)));
     }
 
     #[test]
     fn get_mut() {
-        let mut x = Rc::new(3);
+        let mut x = Cc::new(3);
         *super::get_mut(&mut x).unwrap() = 4;
         assert_eq!(*x, 4);
         let y = x.clone();
@@ -924,7 +924,7 @@ mod tests {
 
     #[test]
     fn test_cowrc_clone_make_unique() {
-        let mut cow0 = Rc::new(75);
+        let mut cow0 = Cc::new(75);
         let mut cow1 = cow0.clone();
         let mut cow2 = cow1.clone();
 
@@ -948,7 +948,7 @@ mod tests {
 
     #[test]
     fn test_cowrc_clone_unique2() {
-        let mut cow0 = Rc::new(75);
+        let mut cow0 = Cc::new(75);
         let cow1 = cow0.clone();
         let cow2 = cow1.clone();
 
@@ -971,7 +971,7 @@ mod tests {
 
     #[test]
     fn test_cowrc_clone_weak() {
-        let mut cow0 = Rc::new(75);
+        let mut cow0 = Cc::new(75);
         let cow1_weak = cow0.downgrade();
 
         assert!(75 == *cow0);
@@ -985,7 +985,7 @@ mod tests {
 
     #[test]
     fn test_show() {
-        let foo = Rc::new(75);
+        let foo = Cc::new(75);
         assert_eq!(format!("{:?}", foo), "75");
     }
 
