@@ -21,8 +21,8 @@
 
 
 use rustc::plugin::Registry;
-use syntax::ast::{Expr, MetaItem, Mutability};
-use syntax::ext::base::{Annotatable, ExtCtxt, MultiDecorator};
+use syntax::ast::{Expr, Item, MetaItem, Mutability};
+use syntax::ext::base::{Annotatable, Decorator, ExtCtxt};
 use syntax::ext::build::AstBuilder;
 use syntax::ext::deriving::generic::{combine_substructure, EnumMatching, FieldInfo, MethodDef,
                                      Struct, Substructure, TraitDef, ty};
@@ -31,14 +31,16 @@ use syntax::parse::token::intern;
 use syntax::ptr::P;
 
 pub fn expand_derive_cc_trace(cx: &mut ExtCtxt,
-                              span: Span,
-                              mitem: &MetaItem,
-                              item: Annotatable,
-                              push: &mut FnMut(Annotatable))
+                              sp: Span,
+                              meta_item: &MetaItem,
+                              item: &Item,
+                              push: &mut FnMut(P<Item>))
 {
     println!("FITZGEN HELLO");
+    let ann = Annotatable::Item(P(item.clone()));
+
     let cc_trace_trait_def = TraitDef {
-        span: span,
+        span: sp,
         attributes: Vec::new(),
         path: ty::Path::new(vec!("bacon_rajan_cc", "Trace")),
         additional_bounds: Vec::new(),
@@ -61,20 +63,23 @@ pub fn expand_derive_cc_trace(cx: &mut ExtCtxt,
         associated_types: Vec::new(),
     };
 
-    cc_trace_trait_def.expand(cx, mitem, &item, push);
+    let mut push2 = |a: Annotatable| {
+        push(a.expect_item());
+    };
+    cc_trace_trait_def.expand(cx, meta_item, &ann, &mut push2);
 }
 
 fn cc_trace_substructure(cx: &mut ExtCtxt, trait_span: Span, substr: &Substructure) -> P<Expr> {
     let state_expr = match (substr.nonself_args.len(), substr.nonself_args.get(0)) {
         (1, Some(o_f)) => o_f,
-        _ => cx.span_bug(trait_span, "incorrect number of arguments in `derive(CcTrace)`")
+        _ => cx.span_bug(trait_span, "incorrect number of arguments in `derive_cc_trace`")
     };
 
     let call_cc_trace = |span, thing_expr| {
         let cc_trace_path = {
             let strs = vec!(
                 cx.ident_of("bacon_rajan_cc"),
-                cx.ident_of("CcTrace"),
+                cx.ident_of("Trace"),
                 cx.ident_of("trace"),
             );
 
@@ -88,7 +93,7 @@ fn cc_trace_substructure(cx: &mut ExtCtxt, trait_span: Span, substr: &Substructu
 
     let fields = match *substr.fields {
         Struct(ref fs) | EnumMatching(_, _, ref fs) => fs,
-        _ => cx.span_bug(trait_span, "impossible substructure in `jstraceable`")
+        _ => cx.span_bug(trait_span, "impossible substructure in `derice_cc_trace`")
     };
 
     for &FieldInfo { ref self_, span, .. } in fields.iter() {
@@ -100,5 +105,5 @@ fn cc_trace_substructure(cx: &mut ExtCtxt, trait_span: Span, substr: &Substructu
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_syntax_extension(intern("CcTrace"), MultiDecorator(Box::new(expand_derive_cc_trace)));
+    reg.register_syntax_extension(intern("derive_cc_trace"), Decorator(Box::new(expand_derive_cc_trace)));
 }

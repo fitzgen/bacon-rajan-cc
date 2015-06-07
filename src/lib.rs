@@ -151,6 +151,7 @@
 #![feature(core)]
 #![feature(custom_derive)]
 #![feature(filling_drop)]
+#![feature(optin_builtin_traits)]
 #![feature(plugin)]
 #![feature(plugin_registrar)]
 #![feature(quote)]
@@ -796,17 +797,17 @@ impl<T> CcBoxPtr<T> for Weak<T> {
     }
 }
 
-pub type Tracer = FnMut(&CcTrace);
+pub type Tracer = FnMut(&Trace);
 
-pub trait CcTrace: fmt::Debug {
-    fn trace(&self, tracer: &mut Tracer);
+pub trait Trace: fmt::Debug {
+    fn trace(&self, _tracer: &mut Tracer);
 }
 
 #[cfg(test)]
 mod tests {
     #![plugin(bacon_rajan_cc)]
 
-    use super::{Cc, CcTrace, Weak, weak_count, strong_count};
+    use super::{Cc, Weak, weak_count, strong_count};
     use std::boxed::Box;
     use std::cell::RefCell;
     use std::option::Option;
@@ -814,30 +815,6 @@ mod tests {
     use std::result::Result::{Err, Ok};
     use std::mem::drop;
     use std::clone::Clone;
-
-    // trace_macros!(true);
-
-    // #[derive(CcTrace, Debug)]
-    // struct CycleCollected {
-    //     a: Cc<u32>,
-    //     b: Cc<String>,
-    // }
-
-    // trace_macros!(false);
-
-    // #[test]
-    // fn test_plugin() {
-    //     let x = CycleCollected {
-    //         a: Cc::new(5),
-    //         b: Cc::new("hello".into()),
-    //     };
-
-    //     CcTrace::trace(&x, &mut |v| {
-    //         println!("traced {:?}", v);
-    //     });
-
-    //     assert!(false);
-    // }
 
     // Tests copied from `Rc<T>`.
 
