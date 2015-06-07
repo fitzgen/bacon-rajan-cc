@@ -33,7 +33,7 @@ use syntax::ptr::P;
 pub fn expand_derive_cc_trace(cx: &mut ExtCtxt,
                               span: Span,
                               mitem: &MetaItem,
-                              item: Annotatable,
+                              item: &Annotatable,
                               push: &mut FnMut(Annotatable))
 {
     println!("FITZGEN HELLO");
@@ -51,7 +51,7 @@ pub fn expand_derive_cc_trace(cx: &mut ExtCtxt,
                 args: vec!(ty::Ptr(Box::new(ty::Literal(ty::Path::new(vec!("bacon_rajan_cc", "Tracer")))),
                                    ty::PtrTy::Borrowed(None, Mutability::MutMutable))),
                 ret_ty: ty::nil_ty(),
-                attributes: vec![quote_attr!(cx, #[inline(always)])],
+                attributes: vec![quote_attr!(cx, #[inline])],
                 is_unsafe: false,
                 combine_substructure: combine_substructure(Box::new(|a, b, c| {
                     cc_trace_substructure(a, b, c)
@@ -61,7 +61,7 @@ pub fn expand_derive_cc_trace(cx: &mut ExtCtxt,
         associated_types: Vec::new(),
     };
 
-    cc_trace_trait_def.expand(cx, mitem, &item, push);
+    cc_trace_trait_def.expand(cx, mitem, item, push);
 }
 
 fn cc_trace_substructure(cx: &mut ExtCtxt, trait_span: Span, substr: &Substructure) -> P<Expr> {
