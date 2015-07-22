@@ -148,9 +148,13 @@
 //! ```
 
 #![feature(alloc)]
+#![feature(box_raw)]
 #![feature(core)]
+#![feature(core_intrinsics)]
 #![feature(custom_derive)]
 #![feature(filling_drop)]
+#![feature(heap_api)]
+#![feature(nonzero)]
 #![feature(optin_builtin_traits)]
 #![feature(plugin)]
 #![feature(plugin_registrar)]
@@ -164,8 +168,6 @@ extern crate syntax;
 #[macro_use]
 extern crate rustc;
 
-use std::boxed;
-
 extern crate core;
 use core::cell::Cell;
 use core::clone::Clone;
@@ -173,7 +175,7 @@ use core::cmp::{PartialEq, PartialOrd, Eq, Ord, Ordering};
 use core::default::Default;
 use core::fmt;
 use core::hash::{Hasher, Hash};
-use core::mem::{self, min_align_of, size_of, forget};
+use core::mem::{self, align_of, size_of, forget};
 use core::nonzero::NonZero;
 use core::ops::{Deref, Drop};
 use core::option::Option;
@@ -185,10 +187,6 @@ use core::intrinsics::assume;
 
 extern crate alloc;
 use alloc::heap::deallocate;
-
-/// TODO FITZGEN
-pub mod trace_plugin;
-pub use trace_plugin::*;
 
 struct CcBox<T> {
     value: T,
@@ -223,7 +221,7 @@ impl<T> Cc<T> {
                 // pointers, which ensures that the weak destructor never frees
                 // the allocation while the strong destructor is running, even
                 // if the weak pointer is stored inside the strong one.
-                _ptr: NonZero::new(boxed::into_raw(Box::new(CcBox {
+                _ptr: NonZero::new(Box::into_raw(Box::new(CcBox {
                     value: value,
                     strong: Cell::new(1),
                     weak: Cell::new(1)
@@ -302,7 +300,7 @@ pub fn try_unwrap<T>(rc: Cc<T>) -> Result<T, Cc<T>> {
             // destruct the box and skip our Drop
             // we can ignore the refcounts because we know we're unique
             deallocate(*rc._ptr as *mut u8, size_of::<CcBox<T>>(),
-                        min_align_of::<CcBox<T>>());
+                       align_of::<CcBox<T>>());
             forget(rc);
             Ok(val)
         }
@@ -419,7 +417,7 @@ impl<T> Drop for Cc<T> {
 
                     if self.weak() == 0 {
                         deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
-                                   min_align_of::<CcBox<T>>())
+                                   align_of::<CcBox<T>>())
                     }
                 }
             }
@@ -710,7 +708,7 @@ impl<T> Drop for Weak<T> {
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
                     deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
-                               min_align_of::<CcBox<T>>())
+                               align_of::<CcBox<T>>())
                 }
             }
         }
@@ -805,8 +803,6 @@ pub trait Trace: fmt::Debug {
 
 #[cfg(test)]
 mod tests {
-    #![plugin(bacon_rajan_cc)]
-
     use super::{Cc, Weak, weak_count, strong_count};
     use std::boxed::Box;
     use std::cell::RefCell;
