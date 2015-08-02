@@ -208,7 +208,7 @@ pub use trace::{Trace, Tracer};
 
 /// Implementation of cycle detection and collection.
 pub mod collect;
-pub use collect::{collect_cycles};
+pub use collect::{collect_cycles, number_of_roots_buffered};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[doc(hidden)]
@@ -499,7 +499,7 @@ impl<T: Trace> Drop for Cc<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE {
+            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.strong() > 0 {
                 self.dec_strong();
                 if self.strong() == 0 {
                     self.release();
@@ -788,9 +788,9 @@ impl<T: Trace> Drop for Weak<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE {
+            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.weak() > 0 {
                 self.dec_weak();
-                // the weak count starts at 1, and will only go to zero if all
+                // The weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
                     deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
@@ -832,7 +832,9 @@ impl<T: fmt::Debug> fmt::Debug for Weak<T> {
 
 impl<T: Trace> Trace for Cc<T> {
     fn trace(&mut self, tracer: &mut Tracer) {
-        Trace::trace(&mut *self, tracer);
+        unsafe {
+            Trace::trace(&mut **self._ptr, tracer);
+        }
     }
 }
 
