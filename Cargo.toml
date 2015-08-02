@@ -3,6 +3,8 @@ name = "bacon_rajan_cc"
 version = "0.1.0"
 authors = ["Nick Fitzgerald <fitzgen@gmail.com>"]
 
+description = "A reference counted type with cycle collection."
+
 license = "MIT/Apache-2.0"
 
 repository="https://github.com/fitzgen/bacon-rajan-cc"
