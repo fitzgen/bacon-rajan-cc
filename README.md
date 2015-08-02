@@ -1,6 +1,6 @@
 # bacon_rajan_cc
 
-[![Build Status](https://travis-ci.org/fitzgen/bacon_rajan_cc.png?branch=master)](https://travis-ci.org/fitzgen/bacon_rajan_cc)
+[![Build Status](https://travis-ci.org/fitzgen/bacon_rajan_cc.png?branch=master)](https://travis-ci.org/fitzgen/bacon-rajan-cc)
 
 [![crates.io](http://meritbadge.herokuapp.com/bacon_rajan_cc)](https://crates.io/crates/bacon_rajan_cc)
 
