@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Trace","A trait that informs cycle collector how to find memory that is owned by a `Trace` instance and managed by the cycle collector."]],"type":[["Tracer","A `Tracer` is a callback function that is invoked for each `CcBoxPtr` owned by an instance of something."]]});
