@@ -12,8 +12,7 @@ documentation="https://fitzgen.github.io/bacon-rajan-cc/bacon_rajan_cc/index.htm
 
 readme="README.md"
 
-keywords=["cc", "gc", "rc", "memory", "collect", "collection", "cycle", "trace",
-          "tracing", "mark", "sweep", "scan", "garbage"]
+keywords=["cc", "gc", "mark", "sweep", "garbage"]
 
 [lib]
 name = "bacon_rajan_cc"
