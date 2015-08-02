@@ -147,26 +147,26 @@
 //! }
 //! ```
 
+#![deny(missing_docs)]
+
 #![feature(alloc)]
+#![feature(append)]
 #![feature(box_raw)]
 #![feature(core)]
 #![feature(core_intrinsics)]
 #![feature(custom_derive)]
+#![feature(drain)]
 #![feature(filling_drop)]
 #![feature(heap_api)]
+#![feature(io)]
 #![feature(nonzero)]
 #![feature(optin_builtin_traits)]
 #![feature(plugin)]
 #![feature(plugin_registrar)]
 #![feature(quote)]
-#![feature(rustc_private)]
+#![feature(rc_weak)]
 #![feature(trace_macros)]
 #![feature(unsafe_no_drop_flag)]
-
-#[macro_use]
-extern crate syntax;
-#[macro_use]
-extern crate rustc;
 
 extern crate core;
 use core::cell::Cell;
@@ -188,23 +188,64 @@ use core::intrinsics::assume;
 extern crate alloc;
 use alloc::heap::deallocate;
 
-struct CcBox<T> {
-    value: T,
+/// Tracing traits, types, and implementation.
+pub mod trace;
+pub use trace::{Trace, Tracer};
+
+/// Implementation of cycle detection and collection.
+pub mod collect;
+pub use collect::{collect_cycles};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[doc(hidden)]
+pub enum Color {
+    /// In use or free.
+    Black,
+
+    /// Possible member of a cycle.
+    Gray,
+
+    /// Member of a garbage cycle.
+    White,
+
+    /// Possible root of cycle.
+    Purple,
+
+    /// Candidate cycle undergoing sigma-computation. Not yet in use.
+    #[allow(dead_code)]
+    Red,
+
+    /// Candidate cycle awaiting epoch boundary. Not yet in use.
+    #[allow(dead_code)]
+    Orange,
+}
+
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct CcBoxData {
     strong: Cell<usize>,
-    weak: Cell<usize>
+    weak: Cell<usize>,
+    buffered: Cell<bool>,
+    color: Cell<Color>,
+}
+
+#[derive(Debug)]
+struct CcBox<T: Trace> {
+    value: T,
+    data: CcBoxData,
 }
 
 /// A reference-counted pointer type over an immutable value.
 ///
 /// See the [module level documentation](./) for more details.
 #[unsafe_no_drop_flag]
-pub struct Cc<T> {
+pub struct Cc<T: 'static + Trace> {
     // FIXME #12808: strange names to try to avoid interfering with field
     // accesses of the contained type via Deref
     _ptr: NonZero<*mut CcBox<T>>,
 }
 
-impl<T> Cc<T> {
+impl<T: Trace> Cc<T> {
     /// Constructs a new `Cc<T>`.
     ///
     /// # Examples
@@ -217,14 +258,18 @@ impl<T> Cc<T> {
     pub fn new(value: T) -> Cc<T> {
         unsafe {
             Cc {
-                // there is an implicit weak pointer owned by all the strong
+                // There is an implicit weak pointer owned by all the strong
                 // pointers, which ensures that the weak destructor never frees
                 // the allocation while the strong destructor is running, even
                 // if the weak pointer is stored inside the strong one.
                 _ptr: NonZero::new(Box::into_raw(Box::new(CcBox {
                     value: value,
-                    strong: Cell::new(1),
-                    weak: Cell::new(1)
+                    data: CcBoxData {
+                        strong: Cell::new(1),
+                        weak: Cell::new(1),
+                        buffered: Cell::new(false),
+                        color: Cell::new(Color::Black),
+                    }
                 }))),
             }
         }
@@ -248,13 +293,45 @@ impl<T> Cc<T> {
     }
 }
 
+impl<T: Trace> Cc<T> {
+    unsafe fn release(&mut self) {
+        debug_assert!(self.strong() == 0);
+        self.data().color.set(Color::Black);
+
+        // If it is in the buffer, then it will be freed later in the
+        // `mark_roots` procedure.
+        if self.buffered() {
+            return;
+        }
+
+        self.free();
+    }
+
+    fn possible_root(&mut self) {
+        debug_assert!(self.strong() > 0);
+
+        if self.color() == Color::Purple {
+            return;
+        }
+
+        self.data().color.set(Color::Purple);
+        if self.buffered() {
+            return;
+        }
+
+        self.data().buffered.set(true);
+        let ptr : NonZero<*mut CcBoxPtr> = self._ptr;
+        collect::add_root(ptr);
+    }
+}
+
 /// Get the number of weak references to this value.
 #[inline]
-pub fn weak_count<T>(this: &Cc<T>) -> usize { this.weak() - 1 }
+pub fn weak_count<T: Trace>(this: &Cc<T>) -> usize { this.weak() - 1 }
 
 /// Get the number of strong references to this value.
 #[inline]
-pub fn strong_count<T>(this: &Cc<T>) -> usize { this.strong() }
+pub fn strong_count<T: Trace>(this: &Cc<T>) -> usize { this.strong() }
 
 /// Returns true if there are no other `Cc` or `Weak<T>` values that share the
 /// same inner value.
@@ -271,7 +348,7 @@ pub fn strong_count<T>(this: &Cc<T>) -> usize { this.strong() }
 /// bacon_rajan_cc::is_unique(&five);
 /// ```
 #[inline]
-pub fn is_unique<T>(rc: &Cc<T>) -> bool {
+pub fn is_unique<T: Trace>(rc: &Cc<T>) -> bool {
     weak_count(rc) == 0 && strong_count(rc) == 1
 }
 
@@ -293,19 +370,19 @@ pub fn is_unique<T>(rc: &Cc<T>) -> bool {
 /// assert_eq!(bacon_rajan_cc::try_unwrap(x), Err(Cc::new(4)));
 /// ```
 #[inline]
-pub fn try_unwrap<T>(rc: Cc<T>) -> Result<T, Cc<T>> {
-    if is_unique(&rc) {
+pub fn try_unwrap<T: Trace>(cc: Cc<T>) -> Result<T, Cc<T>> {
+    if is_unique(&cc) {
         unsafe {
-            let val = ptr::read(&*rc); // copy the contained object
+            let val = ptr::read(&*cc); // copy the contained object
             // destruct the box and skip our Drop
             // we can ignore the refcounts because we know we're unique
-            deallocate(*rc._ptr as *mut u8, size_of::<CcBox<T>>(),
+            deallocate(*cc._ptr as *mut u8, size_of::<CcBox<T>>(),
                        align_of::<CcBox<T>>());
-            forget(rc);
+            forget(cc);
             Ok(val)
         }
     } else {
-        Err(rc)
+        Err(cc)
     }
 }
 
@@ -327,7 +404,7 @@ pub fn try_unwrap<T>(rc: Cc<T>) -> Result<T, Cc<T>> {
 /// assert!(bacon_rajan_cc::get_mut(&mut x).is_none());
 /// ```
 #[inline]
-pub fn get_mut<T>(rc: &mut Cc<T>) -> Option<&mut T> {
+pub fn get_mut<T: Trace>(rc: &mut Cc<T>) -> Option<&mut T> {
     if is_unique(rc) {
         let inner = unsafe { &mut **rc._ptr };
         Some(&mut inner.value)
@@ -336,7 +413,7 @@ pub fn get_mut<T>(rc: &mut Cc<T>) -> Option<&mut T> {
     }
 }
 
-impl<T: Clone> Cc<T> {
+impl<T: 'static + Clone + Trace> Cc<T> {
     /// Make a mutable reference from the given `Cc<T>`.
     ///
     /// This is also referred to as a copy-on-write operation because the inner
@@ -367,16 +444,18 @@ impl<T: Clone> Cc<T> {
     }
 }
 
-impl<T> Deref for Cc<T> {
+impl<T: Trace> Deref for Cc<T> {
     type Target = T;
 
     #[inline(always)]
     fn deref(&self) -> &T {
-        &self.inner().value
+        unsafe {
+            &(**self._ptr).value
+        }
     }
 }
 
-impl<T> Drop for Cc<T> {
+impl<T: Trace> Drop for Cc<T> {
     /// Drops the `Cc<T>`.
     ///
     /// This will decrement the strong reference count. If the strong reference
@@ -409,23 +488,16 @@ impl<T> Drop for Cc<T> {
             if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE {
                 self.dec_strong();
                 if self.strong() == 0 {
-                    ptr::read(&**self); // destroy the contained object
-
-                    // remove the implicit "strong weak" pointer now that we've
-                    // destroyed the contents.
-                    self.dec_weak();
-
-                    if self.weak() == 0 {
-                        deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
-                                   align_of::<CcBox<T>>())
-                    }
+                    self.release();
+                } else {
+                    self.possible_root();
                 }
             }
         }
     }
 }
 
-impl<T> Clone for Cc<T> {
+impl<T: Trace> Clone for Cc<T> {
 
     /// Makes a clone of the `Cc<T>`.
     ///
@@ -449,7 +521,7 @@ impl<T> Clone for Cc<T> {
     }
 }
 
-impl<T: Default> Default for Cc<T> {
+impl<T: Default + Trace> Default for Cc<T> {
     /// Creates a new `Cc<T>`, with the `Default` value for `T`.
     ///
     /// # Examples
@@ -465,7 +537,7 @@ impl<T: Default> Default for Cc<T> {
     }
 }
 
-impl<T: PartialEq> PartialEq for Cc<T> {
+impl<T: PartialEq + Trace> PartialEq for Cc<T> {
     /// Equality for two `Cc<T>`s.
     ///
     /// Two `Cc<T>`s are equal if their inner value are equal.
@@ -499,9 +571,9 @@ impl<T: PartialEq> PartialEq for Cc<T> {
     fn ne(&self, other: &Cc<T>) -> bool { **self != **other }
 }
 
-impl<T: Eq> Eq for Cc<T> {}
+impl<T: Eq + Trace> Eq for Cc<T> {}
 
-impl<T: PartialOrd> PartialOrd for Cc<T> {
+impl<T: PartialOrd + Trace> PartialOrd for Cc<T> {
     /// Partial comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `partial_cmp()` on their inner values.
@@ -585,7 +657,7 @@ impl<T: PartialOrd> PartialOrd for Cc<T> {
     fn ge(&self, other: &Cc<T>) -> bool { **self >= **other }
 }
 
-impl<T: Ord> Ord for Cc<T> {
+impl<T: Ord + Trace> Ord for Cc<T> {
     /// Comparison for two `Cc<T>`s.
     ///
     /// The two are compared by calling `cmp()` on their inner values.
@@ -604,25 +676,25 @@ impl<T: Ord> Ord for Cc<T> {
 }
 
 // FIXME (#18248) Make `T` `Sized?`
-impl<T: Hash> Hash for Cc<T> {
+impl<T: Hash + Trace> Hash for Cc<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (**self).hash(state);
     }
 }
 
-impl<T: fmt::Display> fmt::Display for Cc<T> {
+impl<T: fmt::Display + Trace> fmt::Display for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Cc<T> {
+impl<T: fmt::Debug + Trace> fmt::Debug for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T> fmt::Pointer for Cc<T> {
+impl<T: Trace> fmt::Pointer for Cc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Pointer::fmt(&*self._ptr, f)
     }
@@ -635,13 +707,13 @@ impl<T> fmt::Pointer for Cc<T> {
 ///
 /// See the [module level documentation](./) for more.
 #[unsafe_no_drop_flag]
-pub struct Weak<T> {
+pub struct Weak<T: Trace> {
     // FIXME #12808: strange names to try to avoid interfering with
     // field accesses of the contained type via Deref
     _ptr: NonZero<*mut CcBox<T>>,
 }
 
-impl<T> Weak<T> {
+impl<T: Trace> Weak<T> {
 
     /// Upgrades a weak reference to a strong reference.
     ///
@@ -672,7 +744,7 @@ impl<T> Weak<T> {
     }
 }
 
-impl<T> Drop for Weak<T> {
+impl<T: Trace> Drop for Weak<T> {
     /// Drops the `Weak<T>`.
     ///
     /// This will decrement the weak reference count.
@@ -715,7 +787,7 @@ impl<T> Drop for Weak<T> {
     }
 }
 
-impl<T> Clone for Weak<T> {
+impl<T: Trace> Clone for Weak<T> {
 
     /// Makes a clone of the `Weak<T>`.
     ///
@@ -744,66 +816,139 @@ impl<T: fmt::Debug> fmt::Debug for Weak<T> {
     }
 }
 
+impl<T: Trace> Trace for Cc<T> {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        Trace::trace(&mut *self, tracer);
+    }
+}
+
+impl<T: Trace> Trace for Weak<T> {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        unsafe {
+            Trace::trace(&mut (**self._ptr).value, tracer);
+        }
+    }
+}
+
+impl<T: Trace> Trace for CcBox<T> {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        Trace::trace(&mut self.value, tracer);
+    }
+}
+
 #[doc(hidden)]
-trait CcBoxPtr<T> {
-    fn inner(&self) -> &CcBox<T>;
+pub trait CcBoxPtr: Trace {
+    fn data(&self) -> &CcBoxData;
 
     #[inline]
-    fn strong(&self) -> usize { self.inner().strong.get() }
+    fn color(&self) -> Color { self.data().color.get() }
 
     #[inline]
-    fn inc_strong(&self) { self.inner().strong.set(self.strong() + 1); }
+    fn buffered(&self) -> bool { self.data().buffered.get() }
 
     #[inline]
-    fn dec_strong(&self) { self.inner().strong.set(self.strong() - 1); }
+    fn strong(&self) -> usize { self.data().strong.get() }
 
     #[inline]
-    fn weak(&self) -> usize { self.inner().weak.get() }
+    fn inc_strong(&self) {
+        self.data().strong.set(self.strong() + 1);
+        self.data().color.set(Color::Black);
+    }
 
     #[inline]
-    fn inc_weak(&self) { self.inner().weak.set(self.weak() + 1); }
+    fn dec_strong(&self) { self.data().strong.set(self.strong() - 1); }
 
     #[inline]
-    fn dec_weak(&self) { self.inner().weak.set(self.weak() - 1); }
+    fn weak(&self) -> usize { self.data().weak.get() }
+
+    #[inline]
+    fn inc_weak(&self) { self.data().weak.set(self.weak() + 1); }
+
+    #[inline]
+    fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
+
+    unsafe fn drop_value(&mut self);
+    unsafe fn deallocate(&mut self);
+
+    unsafe fn free(&mut self) {
+        debug_assert!(self.strong() == 0);
+        debug_assert!(!self.buffered());
+
+        // Remove the implicit "strong weak" pointer now that we've destroyed
+        // the contents.
+        self.dec_weak();
+
+        self.drop_value();
+
+        if self.weak() == 0 {
+            self.deallocate();
+        }
+    }
 }
 
-impl<T> CcBoxPtr<T> for Cc<T> {
+impl<T: Trace> CcBoxPtr for Cc<T> {
     #[inline(always)]
-    fn inner(&self) -> &CcBox<T> {
+    fn data(&self) -> &CcBoxData {
         unsafe {
             // Safe to assume this here, as if it weren't true, we'd be breaking
             // the contract anyway.
             // This allows the null check to be elided in the destructor if we
             // manipulated the reference count in the same function.
             assume(!self._ptr.is_null());
-            &(**self._ptr)
+            &(**self._ptr).data
         }
+    }
+
+    unsafe fn drop_value(&mut self) {
+        (&mut **self._ptr).drop_value();
+    }
+
+    unsafe fn deallocate(&mut self) {
+        (&mut **self._ptr).deallocate();
     }
 }
 
-impl<T> CcBoxPtr<T> for Weak<T> {
+impl<T: Trace> CcBoxPtr for Weak<T> {
     #[inline(always)]
-    fn inner(&self) -> &CcBox<T> {
+    fn data(&self) -> &CcBoxData {
         unsafe {
             // Safe to assume this here, as if it weren't true, we'd be breaking
             // the contract anyway.
             // This allows the null check to be elided in the destructor if we
             // manipulated the reference count in the same function.
             assume(!self._ptr.is_null());
-            &(**self._ptr)
+            &(**self._ptr).data
         }
+    }
+
+    unsafe fn drop_value(&mut self) {
+        (&mut **self._ptr).drop_value();
+    }
+
+    unsafe fn deallocate(&mut self) {
+        (&mut **self._ptr).deallocate();
     }
 }
 
-pub type Tracer = FnMut(&Trace);
+impl<T: Trace> CcBoxPtr for CcBox<T> {
+    #[inline(always)]
+    fn data(&self) -> &CcBoxData { &self.data }
 
-pub trait Trace: fmt::Debug {
-    fn trace(&self, _tracer: &mut Tracer);
+    unsafe fn drop_value(&mut self) {
+        // Destroy the contained object.
+        ptr::read(&self.value);
+    }
+
+    unsafe fn deallocate(&mut self) {
+        let ptr : *mut CcBox<T> = self;
+        deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
+                   align_of::<CcBox<T>>());
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Cc, Weak, weak_count, strong_count};
+    use super::{Cc, Weak, weak_count, strong_count, Trace, Tracer};
     use std::boxed::Box;
     use std::cell::RefCell;
     use std::option::Option;
@@ -861,6 +1006,10 @@ mod tests {
     fn weak_self_cyclic() {
         struct Cycle {
             x: RefCell<Option<Weak<Cycle>>>
+        }
+
+        impl Trace for Cycle {
+            fn trace(&mut self, _: &mut Tracer) { }
         }
 
         let a = Cc::new(Cycle { x: RefCell::new(None) });

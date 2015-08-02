@@ -6,3 +6,5 @@ authors = ["Nick Fitzgerald <fitzgen@gmail.com>"]
 [lib]
 name = "bacon_rajan_cc"
 plugin = true
+
+[dependencies]
