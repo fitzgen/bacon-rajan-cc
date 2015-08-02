@@ -9,6 +9,27 @@ stop-the-world. Based on the paper
 ["Concurrent Cycle Collection in Reference Counted Systems"][paper] by David
 F. Bacon and V.T. Rajan.
 
-**Very much a work-in-progress! Currently only stop-the-world.**
+**Very much a work-in-progress! Currently only stop-the-world, not concurrent.**
+
+## Usage
+
+Add to `Cargo.toml`:
+
+```toml
+[dependencies]
+bacon_rajan_cc = "0.1.0"
+```
+
+Then, in your crate:
+
+```rust
+extern crate bacon_rajan_cc;
+use bacon_rajan_cc::{Cc};
+```
+
+## Documentation
+
+[Read the docs.][docs]
 
 [paper]: http://researcher.watson.ibm.com/researcher/files/us-bacon/Bacon01Concurrent.pdf
+[docs]: https://fitzgen.github.io/bacon-rajan-cc/bacon_rajan_cc/index.html
