@@ -32,11 +32,16 @@
 //!
 //! ```rust
 //! # #![feature(alloc, collections)]
-//! use bacon_rajan_cc::Cc;
+//! use bacon_rajan_cc::{Cc, Trace, Tracer};
 //!
 //! struct Owner {
 //!     name: String
 //!     // ...other fields
+//! }
+//!
+//! impl Trace for Owner {
+//!     // Note: nothing to trace since `Owner` doesn't own any Cc<T> things.
+//!     fn trace(&mut self, _tracer: &mut Tracer) { }
 //! }
 //!
 //! struct Gadget {
@@ -92,8 +97,7 @@
 //!
 //! ```rust
 //! # #![feature(alloc)]
-//! use bacon_rajan_cc::Cc;
-//! use bacon_rajan_cc::Weak;
+//! use bacon_rajan_cc::{Cc, Weak, Trace, Tracer};
 //! use std::cell::RefCell;
 //!
 //! struct Owner {
@@ -102,10 +106,20 @@
 //!     // ...other fields
 //! }
 //!
+//! impl Trace for Owner {
+//!     fn trace(&mut self, _tracer: &mut Tracer) { }
+//! }
+//!
 //! struct Gadget {
 //!     id: i32,
 //!     owner: Cc<Owner>
 //!     // ...other fields
+//! }
+//!
+//! impl Trace for Gadget {
+//!     fn trace(&mut self, tracer: &mut Tracer) {
+//!         tracer(&mut self.owner);
+//!     }
 //! }
 //!
 //! fn main() {
