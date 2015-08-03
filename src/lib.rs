@@ -839,10 +839,8 @@ impl<T: Trace> Trace for Cc<T> {
 }
 
 impl<T: Trace> Trace for Weak<T> {
-    fn trace(&mut self, tracer: &mut Tracer) {
-        unsafe {
-            Trace::trace(&mut (**self._ptr).value, tracer);
-        }
+    fn trace(&mut self, _tracer: &mut Tracer) {
+        // Weak references should not be traced.
     }
 }
 
