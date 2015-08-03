@@ -24,12 +24,12 @@ Then, in your crate:
 
 ```rust
 extern crate bacon_rajan_cc;
-use bacon_rajan_cc::{Cc};
+use bacon_rajan_cc::{Cc, Trace, Tracer};
 ```
 
 ## Documentation
 
-[Read the docs.][docs]
+[Read the docs!][docs]
 
 [paper]: http://researcher.watson.ibm.com/researcher/files/us-bacon/Bacon01Concurrent.pdf
 [docs]: https://fitzgen.github.io/bacon-rajan-cc/bacon_rajan_cc/index.html
