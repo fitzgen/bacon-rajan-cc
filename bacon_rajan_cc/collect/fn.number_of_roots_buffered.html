@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `number_of_roots_buffered` fn in crate `bacon_rajan_cc`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, number_of_roots_buffered">
+
+    <title>bacon_rajan_cc::collect::number_of_roots_buffered - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>bacon_rajan_cc</a>::<wbr><a href='index.html'>collect</a></p><script>window.sidebarCurrent = {name: 'number_of_roots_buffered', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content fn">
+<h1 class='fqn'><span class='in-band'>Function <a href='../index.html'>bacon_rajan_cc</a>::<wbr><a href='index.html'>collect</a>::<wbr><a class='fn' href=''>number_of_roots_buffered</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-1608' class='srclink' href='../../src/bacon_rajan_cc/collect.rs.html#88-90' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn number_of_roots_buffered() -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></pre><div class='docblock'><p>Return the number of potential cycle roots currently buffered for cycle
+collection.</p>
+
+<p>Whenever a <code>Cc&lt;T&gt;</code>&#39;s reference count is decremented, it has the possibility
+of becoming the root of some cycle that is no longer live and can now be
+reclaimed. These possible roots are buffered for cycle detection and
+collection at a later point in time. This enables library users to avoid
+frequent tracing and perform that tracing at a convenient time. Part of
+choosing a convenient time might be when the number of potential cycle roots
+reaches some critical threshold. This method allows you to check the current
+number of possible roots buffered.</p>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>bacon_rajan_cc</span>::{<span class='ident'>Cc</span>, <span class='ident'>Trace</span>, <span class='ident'>Tracer</span>, <span class='ident'>number_of_roots_buffered</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cell</span>::<span class='ident'>RefCell</span>;
+
+<span class='kw'>struct</span> <span class='ident'>Gadget</span> {
+    <span class='ident'>parent</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>,
+    <span class='ident'>children</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>,
+    <span class='comment'>// ...</span>
+}
+
+<span class='kw'>impl</span> <span class='ident'>Trace</span> <span class='kw'>for</span> <span class='ident'>Gadget</span> {
+    <span class='kw'>fn</span> <span class='ident'>trace</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>_tracer</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Tracer</span>) { <span class='comment'>/* ... */</span> }
+}
+
+<span class='kw'>fn</span> <span class='ident'>add_child</span>(<span class='ident'>parent</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span> {
+    <span class='kw'>let</span> <span class='ident'>child</span> <span class='op'>=</span> <span class='ident'>Cc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>Gadget</span> { <span class='ident'>parent</span>: <span class='prelude-val'>None</span>, <span class='ident'>children</span>: <span class='macro'>vec</span><span class='macro'>!</span>() }));
+    <span class='ident'>child</span>.<span class='ident'>borrow_mut</span>().<span class='ident'>parent</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>parent</span>.<span class='ident'>clone</span>());
+    <span class='ident'>parent</span>.<span class='ident'>borrow_mut</span>().<span class='ident'>children</span>.<span class='ident'>push</span>(<span class='ident'>child</span>.<span class='ident'>clone</span>());
+    <span class='ident'>child</span>
+}
+
+<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='comment'>// No possible roots, as we haven&#39;t created any `Cc&lt;T&gt;`s yet.</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>number_of_roots_buffered</span>(), <span class='number'>0</span>);
+
+    {
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>parent</span> <span class='op'>=</span> <span class='ident'>Cc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>Gadget</span> { <span class='ident'>parent</span>: <span class='prelude-val'>None</span>, <span class='ident'>children</span>: <span class='macro'>vec</span><span class='macro'>!</span>() }));
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>children</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>();
+        <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='number'>0</span>..<span class='number'>10</span> {
+            <span class='ident'>children</span>.<span class='ident'>push</span>(<span class='ident'>add_child</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>parent</span>));
+        }
+
+        <span class='comment'>// No possible roots, we have only incremented reference counts and</span>
+        <span class='comment'>// created new `Cc&lt;T&gt;`s. We have not decremented any reference</span>
+        <span class='comment'>// counts or created any dead cycles.</span>
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>number_of_roots_buffered</span>(), <span class='number'>0</span>);
+    }
+
+    <span class='comment'>// None of the Gadgets are reachable anymore, but they had cyclic</span>
+    <span class='comment'>// references between parents and children. However, because their</span>
+    <span class='comment'>// reference counts were decremented when we left the block, they should</span>
+    <span class='comment'>// be buffered for cycle collection.</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>number_of_roots_buffered</span>(),
+               <span class='number'>1</span> <span class='comment'>/* parent */</span> <span class='op'>+</span> <span class='number'>10</span> <span class='comment'>/* children */</span>);
+
+    <span class='comment'>// If we had actually implemented `Trace` for `Gadget` rather than just</span>
+    <span class='comment'>// stubbing it out, we could call `collect_cycles` here to reclaim the</span>
+    <span class='comment'>// cycle.</span>
+}</pre>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "bacon_rajan_cc";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

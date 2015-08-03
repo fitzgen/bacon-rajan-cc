@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["collect_cycles","TODO FITZGEN"]]});
+initSidebarItems({"fn":[["collect_cycles","Invoke cycle collection for all `Cc<T>`s on this thread."],["number_of_roots_buffered","Return the number of potential cycle roots currently buffered for cycle collection."]]});

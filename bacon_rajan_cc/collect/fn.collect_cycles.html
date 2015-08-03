@@ -45,8 +45,95 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-1609' class='srclink' href='../../src/bacon_rajan_cc/collect.rs.html#26-30' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn collect_cycles()</pre><div class='docblock'><p>TODO FITZGEN</p>
+        </span><a id='src-1622' class='srclink' href='../../src/bacon_rajan_cc/collect.rs.html#182-186' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn collect_cycles()</pre><div class='docblock'><p>Invoke cycle collection for all <code>Cc&lt;T&gt;</code>s on this thread.</p>
+
+<p>You may wish to do this when the roots buffer reaches a certain size, when
+memory is low, or at opportune moments within your application (such as when
+the user has been inactive for <code>n</code> seconds in a GUI application).</p>
+
+<p>This happens in three phases:</p>
+
+<ol>
+<li><p><code>mark_roots</code>: We mark the roots and decrement reference counts as we
+go. This is optimistically removing the strong references held by the
+potentially dead cycles.</p></li>
+<li><p><code>scan_roots</code>: Then we perform a second traversal which marks the garbage
+nodes with a reference count of 0 as White and the non-garbage nodes with a
+reference count &gt; 0 as Black. The latter group&#39;s reference count is restored
+to its previous value from before step (1).</p></li>
+<li><p><code>collect_roots</code>: Finally, the buffer of possible dead cycle roots is
+emptied and members of dead cycles (White nodes) are dropped.</p></li>
+</ol>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>bacon_rajan_cc</span>::{<span class='ident'>Cc</span>, <span class='ident'>Trace</span>, <span class='ident'>Tracer</span>, <span class='ident'>collect_cycles</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cell</span>::<span class='ident'>RefCell</span>;
+
+<span class='comment'>// The number of Gadgets allocated at any given time.</span>
+<span class='macro'>thread_local</span><span class='macro'>!</span>(<span class='kw'>static</span> <span class='ident'>GADGET_COUNT</span>: <span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='number'>0</span>));
+
+<span class='kw'>struct</span> <span class='ident'>Gadget</span> {
+    <span class='ident'>parent</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>,
+    <span class='ident'>children</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>,
+    <span class='comment'>// ...</span>
+}
+
+<span class='kw'>impl</span> <span class='ident'>Gadget</span> {
+    <span class='kw'>fn</span> <span class='ident'>new</span>() <span class='op'>-&gt;</span> <span class='ident'>Gadget</span> {
+        <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow_mut</span>() <span class='op'>+=</span> <span class='number'>1</span>);
+        <span class='ident'>Gadget</span> { <span class='ident'>parent</span>: <span class='prelude-val'>None</span>, <span class='ident'>children</span>: <span class='macro'>vec</span><span class='macro'>!</span>() }
+    }
+}
+
+<span class='kw'>impl</span> <span class='ident'>Trace</span> <span class='kw'>for</span> <span class='ident'>Gadget</span> {
+    <span class='kw'>fn</span> <span class='ident'>trace</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>tracer</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Tracer</span>) {
+        <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='kw-2'>ref</span> <span class='kw-2'>mut</span> <span class='ident'>p</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>parent</span> {
+            <span class='ident'>tracer</span>(<span class='ident'>p</span>);
+        }
+        <span class='kw'>for</span> <span class='ident'>child</span> <span class='kw'>in</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>.<span class='ident'>children</span> {
+            <span class='ident'>tracer</span>(<span class='ident'>child</span>);
+        }
+    }
+}
+
+<span class='kw'>impl</span> <span class='ident'>Drop</span> <span class='kw'>for</span> <span class='ident'>Gadget</span> {
+    <span class='kw'>fn</span> <span class='ident'>drop</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
+        <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow_mut</span>() <span class='op'>-=</span> <span class='number'>1</span>);
+    }
+}
+
+<span class='kw'>fn</span> <span class='ident'>add_child</span>(<span class='ident'>parent</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>Cc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>Gadget</span><span class='op'>&gt;&gt;</span> {
+    <span class='kw'>let</span> <span class='ident'>child</span> <span class='op'>=</span> <span class='ident'>Cc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>Gadget</span>::<span class='ident'>new</span>()));
+    <span class='ident'>child</span>.<span class='ident'>borrow_mut</span>().<span class='ident'>parent</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>parent</span>.<span class='ident'>clone</span>());
+    <span class='ident'>parent</span>.<span class='ident'>borrow_mut</span>().<span class='ident'>children</span>.<span class='ident'>push</span>(<span class='ident'>child</span>.<span class='ident'>clone</span>());
+    <span class='ident'>child</span>
+}
+
+<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='comment'>// Initially, no gadgets.</span>
+    <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow</span>(), <span class='number'>0</span>));
+
+    {
+        <span class='comment'>// Create cycles.</span>
+
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>parent</span> <span class='op'>=</span> <span class='ident'>Cc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>Gadget</span>::<span class='ident'>new</span>()));
+        <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='number'>0</span>..<span class='number'>10</span> {
+            <span class='ident'>add_child</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>parent</span>);
+        }
+
+        <span class='comment'>// We created 1 parent and 10 child gadgets.</span>
+        <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow</span>(), <span class='number'>11</span>));
+    }
+
+    <span class='comment'>// The members of the cycle are now dead, but because of the cycles</span>
+    <span class='comment'>// could not be eagerly collected.</span>
+    <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow</span>(), <span class='number'>11</span>));
+
+    <span class='comment'>// After calling `collect_cycles`, the cycles are detected and the</span>
+    <span class='comment'>// members of the dead cycles are dropped.</span>
+    <span class='ident'>collect_cycles</span>();
+    <span class='ident'>GADGET_COUNT</span>.<span class='ident'>with</span>(<span class='op'>|</span><span class='ident'>c</span><span class='op'>|</span> <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='ident'>c</span>.<span class='ident'>borrow</span>(), <span class='number'>0</span>));
+}</pre>
 </div></section>
     <section id='search' class="content hidden"></section>
 
