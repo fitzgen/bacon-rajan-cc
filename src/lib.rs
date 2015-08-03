@@ -210,6 +210,9 @@ pub use trace::{Trace, Tracer};
 pub mod collect;
 pub use collect::{collect_cycles, number_of_roots_buffered};
 
+mod cc_box_ptr;
+use cc_box_ptr::CcBoxPtr;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[doc(hidden)]
 pub enum Color {
@@ -339,92 +342,98 @@ impl<T: Trace> Cc<T> {
     }
 }
 
-/// Get the number of weak references to this value.
-#[inline]
-pub fn weak_count<T: Trace>(this: &Cc<T>) -> usize { this.weak() - 1 }
+impl<T: 'static + Trace> Cc<T> {
+    /// Returns true if there are no other `Cc` or `Weak<T>` values that share
+    /// the same inner value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(alloc)]
+    /// use bacon_rajan_cc;
+    /// use bacon_rajan_cc::Cc;
+    ///
+    /// let five = Cc::new(5);
+    /// assert_eq!(five.is_unique(), true);
+    ///
+    /// let another_five = five.clone();
+    /// assert_eq!(five.is_unique(), false);
+    /// assert_eq!(another_five.is_unique(), false);
+    /// ```
+    #[inline]
+    pub fn is_unique(&self) -> bool {
+        self.weak_count() == 0 && self.strong_count() == 1
+    }
 
-/// Get the number of strong references to this value.
-#[inline]
-pub fn strong_count<T: Trace>(this: &Cc<T>) -> usize { this.strong() }
-
-/// Returns true if there are no other `Cc` or `Weak<T>` values that share the
-/// same inner value.
-///
-/// # Examples
-///
-/// ```
-/// # #![feature(alloc)]
-/// use bacon_rajan_cc;
-/// use bacon_rajan_cc::Cc;
-///
-/// let five = Cc::new(5);
-///
-/// bacon_rajan_cc::is_unique(&five);
-/// ```
-#[inline]
-pub fn is_unique<T: Trace>(rc: &Cc<T>) -> bool {
-    weak_count(rc) == 0 && strong_count(rc) == 1
-}
-
-/// Unwraps the contained value if the `Cc<T>` is unique.
-///
-/// If the `Cc<T>` is not unique, an `Err` is returned with the same `Cc<T>`.
-///
-/// # Examples
-///
-/// ```
-/// # #![feature(alloc)]
-/// use bacon_rajan_cc::{self, Cc};
-///
-/// let x = Cc::new(3);
-/// assert_eq!(bacon_rajan_cc::try_unwrap(x), Ok(3));
-///
-/// let x = Cc::new(4);
-/// let _y = x.clone();
-/// assert_eq!(bacon_rajan_cc::try_unwrap(x), Err(Cc::new(4)));
-/// ```
-#[inline]
-pub fn try_unwrap<T: Trace>(cc: Cc<T>) -> Result<T, Cc<T>> {
-    if is_unique(&cc) {
-        unsafe {
-            let val = ptr::read(&*cc); // copy the contained object
-            // destruct the box and skip our Drop
-            // we can ignore the refcounts because we know we're unique
-            deallocate(*cc._ptr as *mut u8, size_of::<CcBox<T>>(),
-                       align_of::<CcBox<T>>());
-            forget(cc);
-            Ok(val)
+    /// Unwraps the contained value if the `Cc<T>` is unique.
+    ///
+    /// If the `Cc<T>` is not unique, an `Err` is returned with the same `Cc<T>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(alloc)]
+    /// use bacon_rajan_cc::Cc;
+    ///
+    /// let x = Cc::new(3);
+    /// assert_eq!(x.try_unwrap(), Ok(3));
+    ///
+    /// let x = Cc::new(4);
+    /// let _y = x.clone();
+    /// assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
+    /// ```
+    #[inline]
+    pub fn try_unwrap(self) -> Result<T, Cc<T>> {
+        if self.is_unique() {
+            unsafe {
+                // Copy the contained object.
+                let val = ptr::read(&*self);
+                // Destruct the box and skip our Drop. We can ignore the
+                // refcounts because we know we're unique.
+                deallocate(*self._ptr as *mut u8, size_of::<CcBox<T>>(),
+                           align_of::<CcBox<T>>());
+                forget(self);
+                Ok(val)
+            }
+        } else {
+            Err(self)
         }
-    } else {
-        Err(cc)
     }
-}
 
-/// Returns a mutable reference to the contained value if the `Cc<T>` is unique.
-///
-/// Returns `None` if the `Cc<T>` is not unique.
-///
-/// # Examples
-///
-/// ```
-/// # #![feature(alloc)]
-/// use bacon_rajan_cc::{self, Cc};
-///
-/// let mut x = Cc::new(3);
-/// *bacon_rajan_cc::get_mut(&mut x).unwrap() = 4;
-/// assert_eq!(*x, 4);
-///
-/// let _y = x.clone();
-/// assert!(bacon_rajan_cc::get_mut(&mut x).is_none());
-/// ```
-#[inline]
-pub fn get_mut<T: Trace>(rc: &mut Cc<T>) -> Option<&mut T> {
-    if is_unique(rc) {
-        let inner = unsafe { &mut **rc._ptr };
-        Some(&mut inner.value)
-    } else {
-        None
+    /// Returns a mutable reference to the contained value if the `Cc<T>` is
+    /// unique.
+    ///
+    /// Returns `None` if the `Cc<T>` is not unique.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bacon_rajan_cc::Cc;
+    ///
+    /// let mut x = Cc::new(3);
+    /// *Cc::get_mut(&mut x).unwrap() = 4;
+    /// assert_eq!(*x, 4);
+    ///
+    /// let _y = x.clone();
+    /// assert!(Cc::get_mut(&mut x).is_none());
+    /// ```
+    #[inline]
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        if self.is_unique() {
+            let inner = unsafe { &mut **self._ptr };
+            Some(&mut inner.value)
+        } else {
+            None
+        }
     }
+
+    /// Get the number of strong references to this value.
+    #[inline]
+    pub fn strong_count(&self) -> usize { self.strong() }
+
+    /// Get the number of weak references to this value.
+    #[inline]
+    pub fn weak_count(&self) -> usize { self.weak() - 1 }
 }
 
 impl<T: 'static + Clone + Trace> Cc<T> {
@@ -445,7 +454,7 @@ impl<T: 'static + Clone + Trace> Cc<T> {
     /// ```
     #[inline]
     pub fn make_unique(&mut self) -> &mut T {
-        if !is_unique(self) {
+        if !self.is_unique() {
             *self = Cc::new((**self).clone())
         }
         // This unsafety is ok because we're guaranteed that the pointer
@@ -851,55 +860,6 @@ impl<T: Trace> Trace for CcBox<T> {
 }
 
 #[doc(hidden)]
-pub trait CcBoxPtr: Trace {
-    fn data(&self) -> &CcBoxData;
-
-    #[inline]
-    fn color(&self) -> Color { self.data().color.get() }
-
-    #[inline]
-    fn buffered(&self) -> bool { self.data().buffered.get() }
-
-    #[inline]
-    fn strong(&self) -> usize { self.data().strong.get() }
-
-    #[inline]
-    fn inc_strong(&self) {
-        self.data().strong.set(self.strong() + 1);
-        self.data().color.set(Color::Black);
-    }
-
-    #[inline]
-    fn dec_strong(&self) { self.data().strong.set(self.strong() - 1); }
-
-    #[inline]
-    fn weak(&self) -> usize { self.data().weak.get() }
-
-    #[inline]
-    fn inc_weak(&self) { self.data().weak.set(self.weak() + 1); }
-
-    #[inline]
-    fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
-
-    unsafe fn drop_value(&mut self);
-    unsafe fn deallocate(&mut self);
-
-    unsafe fn free(&mut self) {
-        debug_assert!(self.strong() == 0);
-        debug_assert!(!self.buffered());
-
-        // Remove the implicit "strong weak" pointer now that we've destroyed
-        // the contents.
-        self.dec_weak();
-
-        self.drop_value();
-
-        if self.weak() == 0 {
-            self.deallocate();
-        }
-    }
-}
-
 impl<T: Trace> CcBoxPtr for Cc<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData {
@@ -962,7 +922,7 @@ impl<T: Trace> CcBoxPtr for CcBox<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cc, Weak, weak_count, strong_count, Trace, Tracer};
+    use super::{Cc, Weak, Trace, Tracer};
     use std::boxed::Box;
     use std::cell::RefCell;
     use std::option::Option;
@@ -1036,75 +996,76 @@ mod tests {
     #[test]
     fn is_unique() {
         let x = Cc::new(3);
-        assert!(super::is_unique(&x));
+        assert!(x.is_unique());
         let y = x.clone();
-        assert!(!super::is_unique(&x));
+        assert!(!x.is_unique());
         drop(y);
-        assert!(super::is_unique(&x));
+        assert!(x.is_unique());
         let w = x.downgrade();
-        assert!(!super::is_unique(&x));
+        assert!(!x.is_unique());
         drop(w);
-        assert!(super::is_unique(&x));
+        assert!(x.is_unique());
     }
 
     #[test]
     fn test_strong_count() {
         let a = Cc::new(0u32);
-        assert!(strong_count(&a) == 1);
+        assert!(a.strong_count() == 1);
         let w = a.downgrade();
-        assert!(strong_count(&a) == 1);
+        assert!(a.strong_count() == 1);
         let b = w.upgrade().expect("upgrade of live rc failed");
-        assert!(strong_count(&b) == 2);
-        assert!(strong_count(&a) == 2);
+        assert!(b.strong_count() == 2);
+        assert!(b.strong_count() == 2);
         drop(w);
         drop(a);
-        assert!(strong_count(&b) == 1);
+        assert!(b.strong_count() == 1);
         let c = b.clone();
-        assert!(strong_count(&b) == 2);
-        assert!(strong_count(&c) == 2);
+        assert!(b.strong_count() == 2);
+        assert!(c.strong_count() == 2);
     }
 
     #[test]
     fn test_weak_count() {
         let a = Cc::new(0u32);
-        assert!(strong_count(&a) == 1);
-        assert!(weak_count(&a) == 0);
+        assert!(a.strong_count() == 1);
+        assert!(a.weak_count() == 0);
         let w = a.downgrade();
-        assert!(strong_count(&a) == 1);
-        assert!(weak_count(&a) == 1);
+        assert!(a.strong_count() == 1);
+        assert!(a.weak_count() == 1);
         drop(w);
-        assert!(strong_count(&a) == 1);
-        assert!(weak_count(&a) == 0);
+        assert!(a.strong_count() == 1);
+        assert!(a.weak_count() == 0);
         let c = a.clone();
-        assert!(strong_count(&a) == 2);
-        assert!(weak_count(&a) == 0);
+        assert!(a.strong_count() == 2);
+        assert!(a.weak_count() == 0);
         drop(c);
     }
 
     #[test]
     fn try_unwrap() {
         let x = Cc::new(3);
-        assert_eq!(super::try_unwrap(x), Ok(3));
+        assert_eq!(x.try_unwrap(), Ok(3));
         let x = Cc::new(4);
         let _y = x.clone();
-        assert_eq!(super::try_unwrap(x), Err(Cc::new(4)));
+        assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
         let x = Cc::new(5);
         let _w = x.downgrade();
-        assert_eq!(super::try_unwrap(x), Err(Cc::new(5)));
+        assert_eq!(x.try_unwrap(), Err(Cc::new(5)));
     }
 
     #[test]
     fn get_mut() {
         let mut x = Cc::new(3);
-        *super::get_mut(&mut x).unwrap() = 4;
+        *x.get_mut().unwrap() = 4;
         assert_eq!(*x, 4);
         let y = x.clone();
-        assert!(super::get_mut(&mut x).is_none());
+        assert!(x.get_mut().is_none());
         drop(y);
-        assert!(super::get_mut(&mut x).is_some());
+        assert!(x.get_mut().is_some());
         let _w = x.downgrade();
-        assert!(super::get_mut(&mut x).is_none());
+        assert!(x.get_mut().is_none());
     }
+
 
     #[test]
     fn test_cowrc_clone_make_unique() {

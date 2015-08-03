@@ -7,10 +7,11 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use super::{CcBoxPtr, Color};
-
 use core::nonzero::NonZero;
 use std::cell::RefCell;
+
+use cc_box_ptr::CcBoxPtr;
+use super::Color;
 
 thread_local!(static ROOTS: RefCell<Vec<NonZero<*mut CcBoxPtr>>> = RefCell::new(vec![]));
 

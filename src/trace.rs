@@ -7,7 +7,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use super::CcBoxPtr;
+use cc_box_ptr::CcBoxPtr;
 
 /// A `Tracer` is a callback function that is invoked for each `CcBoxPtr` owned
 /// by an instance of something.
