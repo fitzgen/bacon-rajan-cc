@@ -4,7 +4,7 @@
 
 [![crates.io](http://meritbadge.herokuapp.com/bacon_rajan_cc)](https://crates.io/crates/bacon_rajan_cc)
 
-A reference counted type with cycle collection for Rust. Concurrent or
+`Cc<T>`: A reference counted type with cycle collection for Rust. Concurrent or
 stop-the-world. Based on the paper
 ["Concurrent Cycle Collection in Reference Counted Systems"][paper] by David
 F. Bacon and V.T. Rajan.
