@@ -10,53 +10,59 @@
 use super::{CcBoxData, Color};
 use trace::Trace;
 
-/// TODO FITZGEN
+/// A trait to group all of the operations we need to be able to do on
+/// `CcBox<T>`'s, potentially across different T types.
 pub trait CcBoxPtr: Trace {
-    /// TODO FITZGEN
+    /// Get this `CcBoxPtr`'s CcBoxData.
     fn data(&self) -> &CcBoxData;
 
-    /// TODO FITZGEN
+    /// Get the color of this node.
     #[inline]
     fn color(&self) -> Color { self.data().color.get() }
 
-    /// TODO FITZGEN
+    /// Return true if this node is in the buffer of possible cycle roots, false
+    /// otherwise.
     #[inline]
     fn buffered(&self) -> bool { self.data().buffered.get() }
 
-    /// TODO FITZGEN
+    /// Return the strong reference count.
     #[inline]
     fn strong(&self) -> usize { self.data().strong.get() }
 
-    /// TODO FITZGEN
+    /// Increment this node's strong reference count.
     #[inline]
     fn inc_strong(&self) {
         self.data().strong.set(self.strong() + 1);
         self.data().color.set(Color::Black);
     }
 
-    /// TODO FITZGEN
+    /// Decrement this node's strong reference count.
     #[inline]
     fn dec_strong(&self) { self.data().strong.set(self.strong() - 1); }
 
-    /// TODO FITZGEN
+    /// Get this node's weak reference count, including the "strong weak"
+    /// reference.
     #[inline]
     fn weak(&self) -> usize { self.data().weak.get() }
 
-    /// TODO FITZGEN
+    /// Increment this node's weak reference count.
     #[inline]
     fn inc_weak(&self) { self.data().weak.set(self.weak() + 1); }
 
-    /// TODO FITZGEN
+    /// Decrement this node's weak reference count.
     #[inline]
     fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
 
-    /// TODO FITZGEN
+    /// Run the Drop implementation for this node's value, but do not deallocate
+    /// the box and its data, as there may still be live weak references that
+    /// need to check the refcount on the box.
     unsafe fn drop_value(&mut self);
 
-    /// TODO FITZGEN
+    /// Deallocate the box, assuming that the boxed value has already had its
+    /// Drop implementation run.
     unsafe fn deallocate(&mut self);
 
-    /// TODO FITZGEN
+    /// Drop the boxed value and deallocate the box if possible.
     unsafe fn free(&mut self) {
         debug_assert!(self.strong() == 0);
         debug_assert!(!self.buffered());
