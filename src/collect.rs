@@ -9,11 +9,34 @@
 
 use core::nonzero::NonZero;
 use std::cell::RefCell;
+use std::error::Error;
+use std::fmt;
+use std::mem;
 
 use cc_box_ptr::CcBoxPtr;
 use super::Color;
 
 thread_local!(static ROOTS: RefCell<Vec<NonZero<*mut CcBoxPtr>>> = RefCell::new(vec![]));
+
+/// The error value passed to `panic!()` when the `T` in a `Cc<T>` has a `Drop`
+/// implementation that tries to access other members of the garbage cycle it is
+/// a part of.
+#[derive(Debug)]
+pub struct AccessGarbageCycleError;
+
+impl fmt::Display for AccessGarbageCycleError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for AccessGarbageCycleError {
+    fn description(&self) -> &str {
+        "Attempt to deref a Cc<T> that is part of a garbage cycle! \
+         Don't access Cc<T> in Drop implmentations!"
+    }
+}
+
 
 #[doc(hidden)]
 pub fn add_root(box_ptr: NonZero<*mut CcBoxPtr>) {
@@ -195,30 +218,18 @@ pub fn collect_cycles() {
 /// garbage cycle, and we will have to restore its old reference count in
 /// `scan_roots`.
 fn mark_roots() {
-    fn mark_gray(cc_box_ptr: &mut CcBoxPtr) {
-        if cc_box_ptr.color() == Color::Gray {
-            return;
-        }
-
-        cc_box_ptr.data().color.set(Color::Gray);
-
-        cc_box_ptr.trace(&mut |t| {
-            t.dec_strong();
-            mark_gray(t);
-        });
-    }
-
     let old_roots: Vec<_> = ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         let drained = v.drain(..);
         drained.collect()
     });
 
-    let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|s| {
+    let mut pending_mark : Vec<NonZero<*mut CcBoxPtr>> = vec!();
+
+    let mut new_roots : Vec<_> = old_roots.into_iter().filter(|&s| {
         let keep = unsafe {
             let box_ptr : &mut CcBoxPtr = &mut **s;
             if box_ptr.color() == Color::Purple {
-                mark_gray(box_ptr);
                 true
             } else {
                 box_ptr.data().buffered.set(false);
@@ -232,16 +243,56 @@ fn mark_roots() {
         };
 
         if keep {
-            Some(s)
-        } else {
-            None
+            pending_mark.push(s);
         }
+
+        keep
     }).collect();
 
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         v.append(&mut new_roots);
     });
+
+    // Mark gray. Make sure to use an iterative graph traversal to avoid nested
+    // RefCell borrows or blowing the stack.
+    while !pending_mark.is_empty() {
+        let mut newly_pending = vec!();
+
+        {
+            let mut pending_trace : Vec<NonZero<*mut CcBoxPtr>> = vec!();
+
+            {
+                let mut mark_gray = &mut |box_ptr: &mut CcBoxPtr| {
+                    if box_ptr.color() == Color::Gray {
+                        return;
+                    }
+
+                    box_ptr.data().color.set(Color::Gray);
+                    pending_trace.push(unsafe {
+                        NonZero::new(mem::transmute(&*box_ptr))
+                    });
+                };
+
+                for raw_thing in pending_mark.drain(..) {
+                    let thing : &mut CcBoxPtr = unsafe { &mut **raw_thing };
+                    thing.trace(mark_gray);
+                }
+            }
+
+            for raw_thing in pending_trace.drain(..) {
+                let thing : &mut CcBoxPtr = unsafe { &mut **raw_thing };
+                thing.trace(&mut |t| {
+                    t.dec_strong();
+                    newly_pending.push(unsafe {
+                        NonZero::new(mem::transmute(&*t))
+                    });
+                });
+            }
+        }
+
+        pending_mark.append(&mut newly_pending);
+    }
 }
 
 /// This is the second traversal, after marking. Color each node in the graph as
@@ -307,4 +358,83 @@ fn collect_roots() {
             collect_white(ptr);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::Cc;
+    use trace::{Trace, Tracer};
+    use std::cell::RefCell;
+
+    struct BadList {
+        prev: Option<Cc<RefCell<BadList>>>,
+        next: Option<Cc<RefCell<BadList>>>,
+    }
+
+    impl Trace for BadList {
+        fn trace(&mut self, trc: Tracer) {
+            self.prev.trace(trc);
+            self.next.trace(trc);
+        }
+    }
+
+    impl Drop for BadList {
+        fn drop(&mut self) {
+            // Access members of a garbage cycle.
+
+            if let Some(ref prev) = self.prev {
+                let _0 = &*prev;
+            } else {
+                panic!(0 as u32);
+            }
+
+            if let Some(ref next) = self.next {
+                let _1 = &*next;
+            } else {
+                panic!(1 as u32);
+            }
+        }
+    }
+
+    #[test]
+    fn test_panic_on_access_dead_cycle() {
+        // use std::thread;
+
+        // let child = thread::spawn(move || {
+            // Create a bunch of cycles.
+            {
+                let first = Cc::new(RefCell::new(BadList {
+                    next: None,
+                    prev: None,
+                }));
+                let mut x = first.clone();
+                for _ in 0..10 {
+                    let y = Cc::new(RefCell::new(BadList {
+                        prev: Some(x.clone()),
+                        next: None,
+                    }));
+                    x.borrow_mut().next = Some(y.clone());
+                    x = y;
+                }
+                x.borrow_mut().next = Some(first.clone());
+                first.borrow_mut().prev = Some(x.clone());
+            }
+
+            // And then run the bad Drop impls.
+            collect_cycles();
+        // });
+
+        // let res = child.join();
+        // assert!(res.is_err());
+
+        // let err_val = res.err().expect("Expecting a value passed to panic!()");
+
+        // // We panic!(u32) in the Drop if the list links are not Some. But they
+        // // all should be because we made a fully connected cycle.
+        // assert!(!err_val.is::<u32>());
+
+        // // This is the error we are expecting.
+        // assert!(err_val.is::<AccessGarbageCycleError>());
+    }
 }

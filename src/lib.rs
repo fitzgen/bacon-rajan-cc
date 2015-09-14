@@ -7,12 +7,17 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Thread-local reference-counted boxes (the `Cc<T>` type).
+//! Thread-local reference-counted boxes with cycle collection (the `Cc<T>`
+//! type).
 //!
-//! The `Cc<T>` type provides shared ownership of an immutable value.
-//! Destruction is deterministic, and will occur as soon as the last owner is
-//! gone. It is marked as non-sendable because it avoids the overhead of atomic
-//! reference counting.
+//! The `Cc<T>` type provides shared ownership of an immutable value. If you
+//! need shared ownership of a mutable value, you can use `Cc<RefCell<T>>`. It
+//! is marked as non-sendable because it avoids the overhead of atomic reference
+//! counting.
+//!
+//! Unlike `std::rc::Rc<T>`, destruction is **not** deterministic, and so `T`
+//! has a bound of `'static` to prevent accessing references whose lifetime may
+//! no longer be valid.
 //!
 //! The `downgrade` method can be used to create a non-owning `Weak<T>` pointer
 //! to the box. A `Weak<T>` pointer can be upgraded to an `Cc<T>` pointer, but
@@ -41,7 +46,7 @@
 //!
 //! impl Trace for Owner {
 //!     // Note: nothing to trace since `Owner` doesn't own any Cc<T> things.
-//!     fn trace(&mut self, _tracer: &mut Tracer) { }
+//!     fn trace(&mut self, _tracer: Tracer) { }
 //! }
 //!
 //! struct Gadget {
@@ -107,7 +112,7 @@
 //! }
 //!
 //! impl Trace for Owner {
-//!     fn trace(&mut self, _tracer: &mut Tracer) { }
+//!     fn trace(&mut self, _tracer: Tracer) { }
 //! }
 //!
 //! struct Gadget {
@@ -117,7 +122,7 @@
 //! }
 //!
 //! impl Trace for Gadget {
-//!     fn trace(&mut self, tracer: &mut Tracer) {
+//!     fn trace(&mut self, tracer: Tracer) {
 //!         tracer(&mut self.owner);
 //!     }
 //! }
@@ -208,7 +213,7 @@ pub use trace::{Trace, Tracer};
 
 /// Implementation of cycle detection and collection.
 pub mod collect;
-pub use collect::{collect_cycles, number_of_roots_buffered};
+pub use collect::{AccessGarbageCycleError, collect_cycles, number_of_roots_buffered};
 
 mod cc_box_ptr;
 use cc_box_ptr::CcBoxPtr;
@@ -472,8 +477,12 @@ impl<T: Trace> Deref for Cc<T> {
 
     #[inline(always)]
     fn deref(&self) -> &T {
-        unsafe {
-            &(**self._ptr).value
+        if self.strong() > 0 {
+            unsafe {
+                &(**self._ptr).value
+            }
+        } else {
+            panic!(AccessGarbageCycleError);
         }
     }
 }
@@ -840,7 +849,7 @@ impl<T: fmt::Debug> fmt::Debug for Weak<T> {
 }
 
 impl<T: Trace> Trace for Cc<T> {
-    fn trace(&mut self, tracer: &mut Tracer) {
+    fn trace(&mut self, tracer: Tracer) {
         unsafe {
             Trace::trace(&mut **self._ptr, tracer);
         }
@@ -848,13 +857,13 @@ impl<T: Trace> Trace for Cc<T> {
 }
 
 impl<T: Trace> Trace for Weak<T> {
-    fn trace(&mut self, _tracer: &mut Tracer) {
+    fn trace(&mut self, _tracer: Tracer) {
         // Weak references should not be traced.
     }
 }
 
 impl<T: Trace> Trace for CcBox<T> {
-    fn trace(&mut self, tracer: &mut Tracer) {
+    fn trace(&mut self, tracer: Tracer) {
         Trace::trace(&mut self.value, tracer);
     }
 }
@@ -864,7 +873,7 @@ impl<T: Trace> CcBoxPtr for Cc<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData {
         unsafe {
-            // Safe to assume this here, as if it weren't true, we'd be breaking
+            // Safe to assume this here, as if it were we'd be breaking
             // the contract anyway.
             // This allows the null check to be elided in the destructor if we
             // manipulated the reference count in the same function.
@@ -983,7 +992,7 @@ mod tests {
         }
 
         impl Trace for Cycle {
-            fn trace(&mut self, _: &mut Tracer) { }
+            fn trace(&mut self, _: Tracer) { }
         }
 
         let a = Cc::new(Cycle { x: RefCell::new(None) });
