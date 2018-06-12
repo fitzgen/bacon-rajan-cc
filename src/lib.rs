@@ -180,7 +180,6 @@
 #![feature(quote)]
 #![feature(rc_weak)]
 #![feature(trace_macros)]
-#![feature(unsafe_no_drop_flag)]
 
 extern crate core;
 use core::cell::Cell;
@@ -255,7 +254,6 @@ struct CcBox<T: Trace> {
 /// A reference-counted pointer type over an immutable value.
 ///
 /// See the [module level documentation](./) for more details.
-#[unsafe_no_drop_flag]
 pub struct Cc<T: 'static + Trace> {
     // FIXME #12808: strange names to try to avoid interfering with field
     // accesses of the contained type via Deref
@@ -508,7 +506,7 @@ impl<T: Trace> Drop for Cc<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.strong() > 0 {
+            if !ptr.is_null() && self.strong() > 0 {
                 self.dec_strong();
                 if self.strong() == 0 {
                     self.release();
@@ -729,7 +727,6 @@ impl<T: Trace> fmt::Pointer for Cc<T> {
 /// dropped.
 ///
 /// See the [module level documentation](./) for more.
-#[unsafe_no_drop_flag]
 pub struct Weak<T: Trace> {
     // FIXME #12808: strange names to try to avoid interfering with
     // field accesses of the contained type via Deref
@@ -797,7 +794,7 @@ impl<T: Trace> Drop for Weak<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.weak() > 0 {
+            if !ptr.is_null() && self.weak() > 0 {
                 self.dec_weak();
                 // The weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
