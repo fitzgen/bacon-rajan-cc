@@ -13,10 +13,10 @@ use std::cell::RefCell;
 use cc_box_ptr::CcBoxPtr;
 use super::Color;
 
-thread_local!(static ROOTS: RefCell<Vec<NonNull<*mut CcBoxPtr>>> = RefCell::new(vec![]));
+thread_local!(static ROOTS: RefCell<Vec<NonNull<CcBoxPtr>>> = RefCell::new(vec![]));
 
 #[doc(hidden)]
-pub fn add_root(box_ptr: NonNull<*mut CcBoxPtr>) {
+pub fn add_root(box_ptr: NonNull<CcBoxPtr>) {
     ROOTS.with(|r| {
         let mut vec = r.borrow_mut();
         vec.push(box_ptr);
@@ -214,9 +214,9 @@ fn mark_roots() {
         drained.collect()
     });
 
-    let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|s| {
+    let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|mut s| {
         let keep = unsafe {
-            let box_ptr : &mut CcBoxPtr = &mut **s;
+            let box_ptr : &mut CcBoxPtr = s.as_mut();
             if box_ptr.color() == Color::Purple {
                 mark_gray(box_ptr);
                 true
@@ -274,9 +274,9 @@ fn scan_roots() {
     }
 
     ROOTS.with(|r| {
-        let v = r.borrow();
-        for s in &*v {
-            let p : &mut CcBoxPtr = unsafe { &mut ***s };
+        let mut v = r.borrow_mut();
+        for s in &mut *v {
+            let p : &mut CcBoxPtr = unsafe { s.as_mut() };
             scan(p);
         }
     });
@@ -301,8 +301,8 @@ fn collect_roots() {
 
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
-        for s in v.drain(..) {
-            let ptr : &mut CcBoxPtr = unsafe { &mut **s };
+        for mut s in v.drain(..) {
+            let ptr : &mut CcBoxPtr = unsafe { s.as_mut() };
             ptr.data().buffered.set(false);
             collect_white(ptr);
         }
