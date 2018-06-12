@@ -171,7 +171,7 @@
 #![feature(custom_derive)]
 #![feature(drain)]
 #![feature(filling_drop)]
-#![feature(heap_api)]
+#![feature(allocator_api)]
 #![feature(io)]
 #![feature(nonzero)]
 #![feature(optin_builtin_traits)]
@@ -180,7 +180,6 @@
 #![feature(quote)]
 #![feature(rc_weak)]
 #![feature(trace_macros)]
-#![feature(unsafe_no_drop_flag)]
 
 extern crate core;
 use core::cell::Cell;
@@ -190,7 +189,7 @@ use core::default::Default;
 use core::fmt;
 use core::hash::{Hasher, Hash};
 use core::mem::{self, align_of, size_of, forget};
-use core::nonzero::NonZero;
+use std::ptr::NonNull;
 use core::ops::{Deref, Drop};
 use core::option::Option;
 use core::option::Option::{Some, None};
@@ -199,8 +198,7 @@ use core::result::Result;
 use core::result::Result::{Ok, Err};
 use core::intrinsics::assume;
 
-extern crate alloc;
-use alloc::heap::deallocate;
+use std::heap::System;
 
 /// Tracing traits, types, and implementation.
 pub mod trace;
@@ -255,11 +253,10 @@ struct CcBox<T: Trace> {
 /// A reference-counted pointer type over an immutable value.
 ///
 /// See the [module level documentation](./) for more details.
-#[unsafe_no_drop_flag]
 pub struct Cc<T: 'static + Trace> {
     // FIXME #12808: strange names to try to avoid interfering with field
     // accesses of the contained type via Deref
-    _ptr: NonZero<*mut CcBox<T>>,
+    _ptr: NonNull<*mut CcBox<T>>,
 }
 
 impl<T: Trace> Cc<T> {
@@ -279,7 +276,7 @@ impl<T: Trace> Cc<T> {
                 // pointers, which ensures that the weak destructor never frees
                 // the allocation while the strong destructor is running, even
                 // if the weak pointer is stored inside the strong one.
-                _ptr: NonZero::new(Box::into_raw(Box::new(CcBox {
+                _ptr: NonNull::new(Box::into_raw(Box::new(CcBox {
                     value: value,
                     data: CcBoxData {
                         strong: Cell::new(1),
@@ -337,7 +334,7 @@ impl<T: Trace> Cc<T> {
         }
 
         self.data().buffered.set(true);
-        let ptr : NonZero<*mut CcBoxPtr> = self._ptr;
+        let ptr : NonNull<*mut CcBoxPtr> = self._ptr;
         collect::add_root(ptr);
     }
 }
@@ -390,8 +387,8 @@ impl<T: 'static + Trace> Cc<T> {
                 let val = ptr::read(&*self);
                 // Destruct the box and skip our Drop. We can ignore the
                 // refcounts because we know we're unique.
-                deallocate(*self._ptr as *mut u8, size_of::<CcBox<T>>(),
-                           align_of::<CcBox<T>>());
+                System::deallocate(*self._ptr as *mut u8, size_of::<CcBox<T>>(),
+                                   align_of::<CcBox<T>>());
                 forget(self);
                 Ok(val)
             }
@@ -508,7 +505,7 @@ impl<T: Trace> Drop for Cc<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.strong() > 0 {
+            if !ptr.is_null() && self.strong() > 0 {
                 self.dec_strong();
                 if self.strong() == 0 {
                     self.release();
@@ -729,11 +726,10 @@ impl<T: Trace> fmt::Pointer for Cc<T> {
 /// dropped.
 ///
 /// See the [module level documentation](./) for more.
-#[unsafe_no_drop_flag]
 pub struct Weak<T: Trace> {
     // FIXME #12808: strange names to try to avoid interfering with
     // field accesses of the contained type via Deref
-    _ptr: NonZero<*mut CcBox<T>>,
+    _ptr: NonNull<*mut CcBox<T>>,
 }
 
 impl<T: Trace> Weak<T> {
@@ -797,13 +793,13 @@ impl<T: Trace> Drop for Weak<T> {
     fn drop(&mut self) {
         unsafe {
             let ptr = *self._ptr;
-            if !ptr.is_null() && ptr as usize != mem::POST_DROP_USIZE && self.weak() > 0 {
+            if !ptr.is_null() && self.weak() > 0 {
                 self.dec_weak();
                 // The weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
-                    deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
-                               align_of::<CcBox<T>>())
+                    System::deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
+                                       align_of::<CcBox<T>>())
                 }
             }
         }
@@ -833,7 +829,7 @@ impl<T: Trace> Clone for Weak<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Weak<T> {
+impl<T: fmt::Debug + Trace> fmt::Debug for Weak<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(Weak)")
     }
@@ -915,8 +911,8 @@ impl<T: Trace> CcBoxPtr for CcBox<T> {
 
     unsafe fn deallocate(&mut self) {
         let ptr : *mut CcBox<T> = self;
-        deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
-                   align_of::<CcBox<T>>());
+        System::deallocate(ptr as *mut u8, size_of::<CcBox<T>>(),
+                           align_of::<CcBox<T>>());
     }
 }
 

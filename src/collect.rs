@@ -7,16 +7,16 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::nonzero::NonZero;
+use std::ptr::NonNull;
 use std::cell::RefCell;
 
 use cc_box_ptr::CcBoxPtr;
 use super::Color;
 
-thread_local!(static ROOTS: RefCell<Vec<NonZero<*mut CcBoxPtr>>> = RefCell::new(vec![]));
+thread_local!(static ROOTS: RefCell<Vec<NonNull<*mut CcBoxPtr>>> = RefCell::new(vec![]));
 
 #[doc(hidden)]
-pub fn add_root(box_ptr: NonZero<*mut CcBoxPtr>) {
+pub fn add_root(box_ptr: NonNull<*mut CcBoxPtr>) {
     ROOTS.with(|r| {
         let mut vec = r.borrow_mut();
         vec.push(box_ptr);
