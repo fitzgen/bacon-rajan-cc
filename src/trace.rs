@@ -329,15 +329,7 @@ mod impls {
             fn trace(&mut self, _tracer: &mut Tracer) { }
         }
 
-        impl<T, U> Trace for io::Broadcast<T, U> {
-            fn trace(&mut self, _tracer: &mut Tracer) { }
-        }
-
         impl<T> Trace for io::Chars<T> {
-            fn trace(&mut self, _tracer: &mut Tracer) { }
-        }
-
-        impl<T, U> Trace for io::Tee<T, U> {
             fn trace(&mut self, _tracer: &mut Tracer) { }
         }
     }
