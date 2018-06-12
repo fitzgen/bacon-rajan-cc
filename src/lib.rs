@@ -830,7 +830,7 @@ impl<T: Trace> Clone for Weak<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Weak<T> {
+impl<T: fmt::Debug + Trace> fmt::Debug for Weak<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(Weak)")
     }
