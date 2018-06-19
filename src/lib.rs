@@ -163,24 +163,6 @@
 
 #![deny(missing_docs)]
 
-#![feature(alloc)]
-#![feature(append)]
-#![feature(box_raw)]
-#![feature(core)]
-#![feature(core_intrinsics)]
-#![feature(custom_derive)]
-#![feature(drain)]
-#![feature(filling_drop)]
-#![feature(allocator_api)]
-#![feature(io)]
-#![feature(nonzero)]
-#![feature(optin_builtin_traits)]
-#![feature(plugin)]
-#![feature(plugin_registrar)]
-#![feature(quote)]
-#![feature(rc_weak)]
-#![feature(trace_macros)]
-
 extern crate core;
 use core::cell::Cell;
 use core::clone::Clone;
