@@ -328,10 +328,6 @@ mod impls {
         impl<T> Trace for io::Take<T> {
             fn trace(&mut self, _tracer: &mut Tracer) { }
         }
-
-        impl<T> Trace for io::Chars<T> {
-            fn trace(&mut self, _tracer: &mut Tracer) { }
-        }
     }
 
     mod net {
