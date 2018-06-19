@@ -188,7 +188,7 @@ use core::cmp::{PartialEq, PartialOrd, Eq, Ord, Ordering};
 use core::default::Default;
 use core::fmt;
 use core::hash::{Hasher, Hash};
-use core::mem::{self, align_of, size_of, forget};
+use core::mem::forget;
 use std::ptr::NonNull;
 use core::ops::{Deref, Drop};
 use core::option::Option;
@@ -196,7 +196,6 @@ use core::option::Option::{Some, None};
 use core::ptr;
 use core::result::Result;
 use core::result::Result::{Ok, Err};
-use core::intrinsics::assume;
 
 use std::alloc::{dealloc, Layout};
 
