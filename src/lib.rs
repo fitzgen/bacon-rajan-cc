@@ -198,9 +198,7 @@ use core::result::Result;
 use core::result::Result::{Ok, Err};
 use core::intrinsics::assume;
 
-extern crate alloc;
-use alloc::heap::Global;
-use core::heap::{Alloc, Layout};
+use std::alloc::{dealloc, Layout};
 
 /// Tracing traits, types, and implementation.
 pub mod trace;
@@ -389,7 +387,7 @@ impl<T: 'static + Trace> Cc<T> {
                 let val = ptr::read(&*self);
                 // Destruct the box and skip our Drop. We can ignore the
                 // refcounts because we know we're unique.
-                Global.dealloc(self._ptr.as_opaque(), Layout::new::<CcBox<T>>());
+                dealloc(self._ptr.cast().as_ptr(), Layout::new::<CcBox<T>>());
                 forget(self);
                 Ok(val)
             }
@@ -797,7 +795,7 @@ impl<T: Trace> Drop for Weak<T> {
                 // The weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
-                    Global.dealloc(self._ptr.as_opaque(), Layout::new::<CcBox<T>>())
+                    dealloc(self._ptr.cast().as_ptr(), Layout::new::<CcBox<T>>())
                 }
             }
         }
@@ -907,7 +905,7 @@ impl<T: Trace> CcBoxPtr for CcBox<T> {
 
     unsafe fn deallocate(&mut self) {
         let ptr : *mut CcBox<T> = self;
-        Global.dealloc(NonNull::new_unchecked(ptr).as_opaque(), Layout::new::<CcBox<T>>());
+        dealloc(NonNull::new_unchecked(ptr).cast().as_ptr(), Layout::new::<CcBox<T>>());
     }
 }
 
