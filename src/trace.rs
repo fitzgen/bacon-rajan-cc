@@ -240,6 +240,17 @@ mod impls {
         }
     }
 
+    mod vec {
+        pub use super::*;
+        impl<T: Trace> Trace for Vec<T> {
+            fn trace(&mut self, tracer: &mut Tracer) {
+                for t in self {
+                    t.trace(tracer);
+                }
+            }
+        }
+    }
+
     mod ffi {
         pub use super::*;
         use std::ffi;
