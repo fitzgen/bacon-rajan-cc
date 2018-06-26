@@ -131,12 +131,8 @@ pub fn number_of_roots_buffered() -> usize {
 ///
 /// impl Trace for Gadget {
 ///     fn trace(&mut self, tracer: &mut Tracer) {
-///         if let Some(ref mut p) = self.parent {
-///             tracer(p);
-///         }
-///         for child in &mut self.children {
-///             tracer(child);
-///         }
+///         self.parent.trace(tracer);
+///         self.children.trace(tracer);
 ///     }
 /// }
 ///
