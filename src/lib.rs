@@ -449,8 +449,12 @@ impl<T: Trace> Deref for Cc<T> {
 
     #[inline(always)]
     fn deref(&self) -> &T {
-        unsafe {
-            &self._ptr.as_ref().value
+        if self.strong_count() > 0 {
+            unsafe {
+                &self._ptr.as_ref().value
+            }
+        } else {
+            panic!("Invalid access during cycle collection");
         }
     }
 }
