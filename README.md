@@ -9,11 +9,13 @@ stop-the-world. Based on the paper
 ["Concurrent Cycle Collection in Reference Counted Systems"][paper] by David
 F. Bacon and V.T. Rajan.
 
-**Very much a work-in-progress! Currently only stop-the-world, not concurrent.**
+Currently only stop-the-world, not concurrent.
 
 ## Usage
 
 Add to `Cargo.toml`:
+
+Note this requires at least Rust 1.28 for the std::alloc api's.
 
 ```toml
 [dependencies]
