@@ -202,7 +202,7 @@ mod impls {
                 // cycle so it's ok if we don't trace through it.
                 // If the borrow gets leaked somehow then we're going
                 // to leak the cycle.
-                self.try_borrow_mut().map(|x| x.trace(tracer));
+                self.try_borrow_mut().map(|mut x| x.trace(tracer));
             }
         }
     }
