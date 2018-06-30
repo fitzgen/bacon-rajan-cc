@@ -1,0 +1,16 @@
+[package]
+name = "bacon_rajan_cc_derive"
+version = "0.1.0"
+authors = ["Jeff Muizelaar"]
+description = "Automatically generating trace functions of cycle collected objects"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/fitzgen/bacon-rajan-cc"
+
+[lib]
+path = "lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = "0.11"
+quote = "0.3"
+synstructure = "0.5"
