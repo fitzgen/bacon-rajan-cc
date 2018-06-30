@@ -31,7 +31,6 @@
 //! and have the `Owner` remain allocated as long as any `Gadget` points at it.
 //!
 //! ```rust
-//! # #![feature(alloc, collections)]
 //! use bacon_rajan_cc::{Cc, Trace, Tracer};
 //!
 //! struct Owner {
@@ -96,7 +95,6 @@
 //! documentation for more details on interior mutability.
 //!
 //! ```rust
-//! # #![feature(alloc)]
 //! use bacon_rajan_cc::{Cc, Weak, Trace, Tracer};
 //! use std::cell::RefCell;
 //!
@@ -275,7 +273,6 @@ impl<T: Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let five = Cc::new(5);
@@ -327,7 +324,6 @@ impl<T: 'static + Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc;
     /// use bacon_rajan_cc::Cc;
     ///
@@ -350,7 +346,6 @@ impl<T: 'static + Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let x = Cc::new(3);
@@ -422,7 +417,6 @@ impl<T: 'static + Clone + Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let mut five = Cc::new(5);
@@ -469,7 +463,6 @@ impl<T: Trace> Drop for Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// {
@@ -510,7 +503,6 @@ impl<T: Trace> Clone for Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let five = Cc::new(5);
@@ -727,7 +719,6 @@ impl<T: Trace> Weak<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let five = Cc::new(5);
@@ -754,7 +745,6 @@ impl<T: Trace> Drop for Weak<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// {
@@ -796,7 +786,6 @@ impl<T: Trace> Clone for Weak<T> {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(alloc)]
     /// use bacon_rajan_cc::Cc;
     ///
     /// let weak_five = Cc::new(5).downgrade();
