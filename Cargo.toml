@@ -1,6 +1,6 @@
 [package]
 name = "bacon_rajan_cc"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Nick Fitzgerald <fitzgen@gmail.com>"]
 
 description = "A reference counted type with cycle collection."
@@ -8,7 +8,7 @@ description = "A reference counted type with cycle collection."
 license = "MIT/Apache-2.0"
 
 repository="https://github.com/fitzgen/bacon-rajan-cc"
-documentation="https://fitzgen.github.io/bacon-rajan-cc/bacon_rajan_cc/index.html"
+documentation="https://docs.rs/crate/bacon-rajan-cc/"
 
 readme="README.md"
 
