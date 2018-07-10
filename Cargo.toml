@@ -8,7 +8,7 @@ description = "A reference counted type with cycle collection."
 license = "MIT/Apache-2.0"
 
 repository="https://github.com/fitzgen/bacon-rajan-cc"
-documentation="https://docs.rs/crate/bacon-rajan-cc/"
+documentation="https://docs.rs/crate/bacon_rajan_cc/"
 
 readme="README.md"
 
