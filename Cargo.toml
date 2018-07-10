@@ -1,6 +1,6 @@
 [package]
 name = "bacon_rajan_cc"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nick Fitzgerald <fitzgen@gmail.com>"]
 
 description = "A reference counted type with cycle collection."
