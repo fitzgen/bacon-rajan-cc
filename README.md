@@ -19,7 +19,7 @@ Note this requires at least Rust 1.28 for the std::alloc api's.
 
 ```toml
 [dependencies]
-bacon_rajan_cc = "0.1.0"
+bacon_rajan_cc = "0.2"
 ```
 
 Then, in your crate:
@@ -34,4 +34,4 @@ use bacon_rajan_cc::{Cc, Trace, Tracer};
 [Read the docs!][docs]
 
 [paper]: http://researcher.watson.ibm.com/researcher/files/us-bacon/Bacon01Concurrent.pdf
-[docs]: https://fitzgen.github.io/bacon-rajan-cc/bacon_rajan_cc/index.html
+[docs]: https://docs.rs/bacon_rajan_cc/
