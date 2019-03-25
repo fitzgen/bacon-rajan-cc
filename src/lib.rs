@@ -1096,4 +1096,14 @@ mod tests {
         let foo = Cc::new(75);
         assert_eq!(format!("{:?}", foo), "75");
     }
+
+    #[test]
+    fn test_map() {
+        let mut map = std::collections::HashMap::new();
+
+        map.insert("Foo".to_string(), 4);
+
+        let x = Cc::new(map);
+        assert_eq!(x.get("Foo"), Some(&4));
+    }
 }

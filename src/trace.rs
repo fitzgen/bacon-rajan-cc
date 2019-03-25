@@ -258,6 +258,13 @@ mod impls {
         }
     }
 
+    mod string {
+        pub use super::*;
+        impl Trace for String {
+            fn trace(&mut self, _tracer: &mut Tracer) { }
+        }
+    }
+
     mod ffi {
         pub use super::*;
         use std::ffi;
