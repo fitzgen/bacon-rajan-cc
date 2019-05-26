@@ -178,7 +178,7 @@ mod impls {
     mod boxed {
         pub use super::*;
 
-        impl<T: Trace> Trace for Box<T> {
+        impl<T: Trace + ?Sized> Trace for Box<T> {
             fn trace(&mut self, tracer: &mut Tracer) {
                 (**self).trace(tracer);
             }
@@ -189,13 +189,13 @@ mod impls {
         pub use super::*;
         use std::cell;
 
-        impl<T: Copy + Trace> Trace for cell::Cell<T> {
+        impl<T: Copy + Trace + ?Sized> Trace for cell::Cell<T> {
             fn trace(&mut self, tracer: &mut Tracer) {
                 self.get().trace(tracer);
             }
         }
 
-        impl<T: Trace> Trace for cell::RefCell<T> {
+        impl<T: Trace + ?Sized> Trace for cell::RefCell<T> {
             fn trace(&mut self, tracer: &mut Tracer) {
                 // If the RefCell is currently borrowed we
                 // assume there's an outstanding reference to this
