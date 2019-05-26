@@ -283,24 +283,73 @@ fn scan_roots() {
 /// there. It will be freed in the nex collection when we iterate over the
 /// buffer in `mark_roots`.
 fn collect_roots() {
-    fn collect_white(s: &mut CcBoxPtr) {
+    use std::rc::Rc;
+
+    fn collect_white(s: &mut CcBoxPtr, w: Rc<RefCell<Vec<NonNull<CcBoxPtr>>>>) {
         if s.color() == Color::White && !s.buffered() {
+            let w2 = Rc::clone(&w);
             s.data().color.set(Color::Black);
-            s.trace(&mut |t| {
-                collect_white(t);
+
+            // Prevent deallocation of `data` during "Step 2".
+            // The side effect will be reverted by "Step 3".
+            s.inc_weak();
+
+            s.trace(&mut move |t| {
+                collect_white(t, Rc::clone(&w));
             });
-            unsafe {
-                s.free();
-            }
+
+            // Collect the pointer into the list.
+            // Bypass the lifetime check to make the code compile.
+            // - The `value` part of the pointers are valid before "Step 2".
+            // - The `data` part of the pointers are valid before "Step 3".
+            // This is safe because there are no access to `data` after "Step 3",
+            // and no access to `value` after "Step 2".
+            let s: &'static mut CcBoxPtr = unsafe { std::mem::transmute(s) };
+            let ptr: NonNull<CcBoxPtr> = unsafe { NonNull::new_unchecked(s as *mut CcBoxPtr) };
+            let mut w = w2.borrow_mut();
+            w.push(ptr);
         }
     }
 
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
+
+        // Recap: `CcBox` has two parts:
+        // - `value`: `T`, the actual value.
+        // - `data`: `CcBoxData`, metadata about counts.
+
+        // Step 1: Find White nodes.
+        // Increase weak count so Step 2 can access `data: CcBoxData` safely.
+        let list = Rc::new(RefCell::new(Vec::new()));
         for mut s in v.drain(..) {
-            let ptr : &mut CcBoxPtr = unsafe { s.as_mut() };
+            let ptr: &mut CcBoxPtr = unsafe { s.as_mut() };
             ptr.data().buffered.set(false);
-            collect_white(ptr);
+            collect_white(ptr, Rc::clone(&list));
+        }
+        // (`Rc<RefCell>` is unnecessary, but it's easier to compile)
+        let mut list = Rc::try_unwrap(list).unwrap().into_inner();
+
+        // Step 2: Drop `value`.
+        // This may trigger other `Drop` code paths. The actual `drop` order
+        // can be different from not the `list` iteration order. So `data`
+        // has to be kept alive.
+        for s in list.iter_mut() {
+            let ptr: &mut CcBoxPtr = unsafe { s.as_mut() };
+            unsafe {
+                ptr.free();
+            }
+        }
+
+        // Step 2: Revert "Step 1" side effect on weak count.
+        // Potentially deallocate `data`.
+        for s in list.iter_mut() {
+            let ptr: &mut CcBoxPtr = unsafe { s.as_mut() };
+            debug_assert!(ptr.weak() >= 1);
+            if ptr.weak() == 1 {
+                unsafe {
+                    ptr.deallocate();
+                }
+            }
         }
     });
 }
