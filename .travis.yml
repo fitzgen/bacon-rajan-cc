@@ -1,2 +1,15 @@
 language: rust
-rust: nightly
+matrix:
+  include:
+    - name: "miri"
+      rust: nightly
+      script:
+        - rustup toolchain install nightly-2019-06-20
+        - rustup default nightly-2019-06-20
+        - rustup component add miri
+        - cargo miri setup
+        - cargo miri test
+    - name: "debug"
+      rust: stable
+      script:
+        - cargo test --verbose --all

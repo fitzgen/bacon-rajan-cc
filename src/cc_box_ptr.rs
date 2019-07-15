@@ -9,6 +9,7 @@
 
 use super::{CcBoxData, Color};
 use trace::Trace;
+use std::ptr::NonNull;
 
 /// A trait to group all of the operations we need to be able to do on
 /// `CcBox<T>`'s, potentially across different T types.
@@ -57,24 +58,20 @@ pub trait CcBoxPtr: Trace {
     /// the box and its data, as there may still be live weak references that
     /// need to check the refcount on the box.
     unsafe fn drop_value(&mut self);
+}
 
-    /// Deallocate the box, assuming that the boxed value has already had its
-    /// Drop implementation run.
-    unsafe fn deallocate(&mut self);
+/// Drop the boxed value and deallocate the box if possible.
+pub unsafe fn free(mut s: NonNull<CcBoxPtr>) {
+    debug_assert!(s.as_mut().strong() == 0);
+    debug_assert!(!s.as_mut().buffered());
 
-    /// Drop the boxed value and deallocate the box if possible.
-    unsafe fn free(&mut self) {
-        debug_assert!(self.strong() == 0);
-        debug_assert!(!self.buffered());
+    // Remove the implicit "strong weak" pointer now that we've destroyed
+    // the contents.
+    s.as_mut().dec_weak();
 
-        // Remove the implicit "strong weak" pointer now that we've destroyed
-        // the contents.
-        self.dec_weak();
+    s.as_mut().drop_value();
 
-        self.drop_value();
-
-        if self.weak() == 0 {
-            self.deallocate();
-        }
+    if s.as_mut().weak() == 0 {
+        crate::deallocate(s);
     }
 }
