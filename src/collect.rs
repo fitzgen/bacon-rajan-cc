@@ -10,7 +10,7 @@
 use std::ptr::NonNull;
 use std::cell::RefCell;
 
-use cc_box_ptr::CcBoxPtr;
+use cc_box_ptr::{CcBoxPtr, free};
 use super::Color;
 
 thread_local!(static ROOTS: RefCell<Vec<NonNull<CcBoxPtr>>> = RefCell::new(vec![]));
@@ -220,7 +220,7 @@ fn mark_roots() {
                 box_ptr.data().buffered.set(false);
 
                 if box_ptr.color() == Color::Black && box_ptr.strong() == 0 {
-                    box_ptr.free();
+                    free(s);
                 }
 
                 false
@@ -283,14 +283,14 @@ fn scan_roots() {
 /// there. It will be freed in the nex collection when we iterate over the
 /// buffer in `mark_roots`.
 fn collect_roots() {
-    fn collect_white(s: &mut CcBoxPtr) {
+    fn collect_white(s: &mut (CcBoxPtr + 'static)) {
         if s.color() == Color::White && !s.buffered() {
             s.data().color.set(Color::Black);
             s.trace(&mut |t| {
                 collect_white(t);
             });
             unsafe {
-                s.free();
+                free(s.into());
             }
         }
     }
