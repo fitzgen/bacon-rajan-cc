@@ -278,20 +278,26 @@ fn scan_roots() {
     });
 }
 
-/// Go through all the White roots and their garbage cycles and drop the nodes
-/// as we go. If a White node is still in the roots buffer, then leave it
-/// there. It will be freed in the nex collection when we iterate over the
+/// Go through all the White roots and their garbage cycles and collect these nodes.
+/// If a White node is still in the roots buffer, then leave it
+/// there. It will be freed in the next collection when we iterate over the
 /// buffer in `mark_roots`.
 fn collect_roots() {
-    fn collect_white(s: &(CcBoxPtr + 'static)) {
+
+    // Collecting the nodes into this Vec is a difference from the original
+    // Bacon-Rajan paper. We need this because we have destructors and
+    // running them during traversal will cause cycles to be broken which
+    // ruins the rest of our traversal.
+    let mut white = Vec::new();
+
+    fn collect_white(s: &(CcBoxPtr + 'static), white: &mut Vec<NonNull<CcBoxPtr>>) {
         if s.color() == Color::White && !s.buffered() {
             s.data().color.set(Color::Black);
             s.trace(&mut |t| {
-                collect_white(t);
+                collect_white(t, white);
             });
-            unsafe {
-                free(s.into());
-            }
+            s.inc_weak();
+            white.push(s.into());
         }
     }
 
@@ -300,7 +306,22 @@ fn collect_roots() {
         for s in v.drain(..) {
             let ptr : &CcBoxPtr = unsafe { s.as_ref() };
             ptr.data().buffered.set(false);
-            collect_white(ptr);
+            collect_white(ptr, &mut white);
         }
     });
+
+    // Run drop on each of nodes. The previous increment of the weak count during traversal will
+    // ensure that all of the memory stays alive during this loop.
+    for i in &white {
+        unsafe { free(*i); }
+    }
+
+    // It's now safe to deallocate the memory.
+    for i in &white {
+        unsafe {
+            // Make sure our weak reference is the only one.
+            debug_assert!(i.as_ref().weak() == 1);
+            crate::deallocate(*i);
+        }
+    }
 }
