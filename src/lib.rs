@@ -1122,6 +1122,6 @@ mod tests {
                 b.0.push(a.clone());
             }
         }
-        //collect_cycles();
+        collect_cycles();
     }
 }
