@@ -191,7 +191,7 @@ pub fn collect_cycles() {
 /// garbage cycle, and we will have to restore its old reference count in
 /// `scan_roots`.
 fn mark_roots() {
-    fn mark_gray(cc_box_ptr: &mut CcBoxPtr) {
+    fn mark_gray(cc_box_ptr: &CcBoxPtr) {
         if cc_box_ptr.color() == Color::Gray {
             return;
         }
@@ -210,9 +210,9 @@ fn mark_roots() {
         drained.collect()
     });
 
-    let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|mut s| {
+    let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|s| {
         let keep = unsafe {
-            let box_ptr : &mut CcBoxPtr = s.as_mut();
+            let box_ptr : &CcBoxPtr = s.as_ref();
             if box_ptr.color() == Color::Purple {
                 mark_gray(box_ptr);
                 true
@@ -244,7 +244,7 @@ fn mark_roots() {
 /// White nodes if its reference count is 0 and it is part of a garbage cycle,
 /// or Black if the node is still live.
 fn scan_roots() {
-    fn scan_black(s: &mut CcBoxPtr) {
+    fn scan_black(s: &CcBoxPtr) {
         s.data().color.set(Color::Black);
         s.trace(&mut |t| {
             t.inc_strong();
@@ -254,7 +254,7 @@ fn scan_roots() {
         });
     }
 
-    fn scan(s: &mut CcBoxPtr) {
+    fn scan(s: &CcBoxPtr) {
         if s.color() != Color::Gray {
             return;
         }
@@ -283,7 +283,7 @@ fn scan_roots() {
 /// there. It will be freed in the nex collection when we iterate over the
 /// buffer in `mark_roots`.
 fn collect_roots() {
-    fn collect_white(s: &mut (CcBoxPtr + 'static)) {
+    fn collect_white(s: &(CcBoxPtr + 'static)) {
         if s.color() == Color::White && !s.buffered() {
             s.data().color.set(Color::Black);
             s.trace(&mut |t| {
@@ -297,8 +297,8 @@ fn collect_roots() {
 
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
-        for mut s in v.drain(..) {
-            let ptr : &mut CcBoxPtr = unsafe { s.as_mut() };
+        for s in v.drain(..) {
+            let ptr : &CcBoxPtr = unsafe { s.as_ref() };
             ptr.data().buffered.set(false);
             collect_white(ptr);
         }
