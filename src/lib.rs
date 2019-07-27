@@ -1097,6 +1097,7 @@ mod tests {
         assert_eq!(format!("{:?}", foo), "75");
     }
 
+    #[cfg(not(all(target_os = "macos", miri)))]
     #[test]
     fn test_map() {
         let mut map = std::collections::HashMap::new();
