@@ -11,7 +11,7 @@ use cc_box_ptr::CcBoxPtr;
 
 /// A `Tracer` is a callback function that is invoked for each `CcBoxPtr` owned
 /// by an instance of something.
-pub type Tracer = FnMut(&mut (CcBoxPtr + 'static));
+pub type Tracer = FnMut(&(CcBoxPtr + 'static));
 
 /// A trait that informs cycle collector how to find memory that is owned by a
 /// `Trace` instance and managed by the cycle collector.
