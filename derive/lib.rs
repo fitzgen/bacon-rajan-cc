@@ -12,7 +12,7 @@ pub fn expand_token_stream(input: proc_macro::TokenStream) -> proc_macro::TokenS
 fn expand_string(input: &str) -> String {
     let mut type_ = syn::parse_macro_input(input).unwrap();
 
-    let style = synstructure::BindStyle::RefMut.into();
+    let style = synstructure::BindStyle::Ref.into();
     let match_body = synstructure::each_field(&mut type_, &style, |binding| {
         if let syn::Ty::Array(..) = binding.field.ty {
             Some(quote! {
@@ -48,7 +48,7 @@ fn expand_string(input: &str) -> String {
         impl #impl_generics ::bacon_rajan_cc::Trace for #name #ty_generics #where_clause {
             #[inline]
             #[allow(unused_variables, unused_mut, unreachable_code)]
-            fn trace(&mut self, tracer: &mut Tracer) {
+            fn trace(&self, tracer: &mut Tracer) {
                 match *self {
                     #match_body
                 }
