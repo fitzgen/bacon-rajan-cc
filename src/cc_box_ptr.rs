@@ -53,11 +53,6 @@ pub trait CcBoxPtr: Trace {
     /// Decrement this node's weak reference count.
     #[inline]
     fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
-
-    /// Run the Drop implementation for this node's value, but do not deallocate
-    /// the box and its data, as there may still be live weak references that
-    /// need to check the refcount on the box.
-    unsafe fn drop_value(&mut self);
 }
 
 /// Drop the boxed value and deallocate the box if possible.
@@ -65,11 +60,12 @@ pub unsafe fn free(mut s: NonNull<CcBoxPtr>) {
     debug_assert!(s.as_mut().strong() == 0);
     debug_assert!(!s.as_mut().buffered());
 
+    crate::drop_value(s);
+
     // Remove the implicit "strong weak" pointer now that we've destroyed
     // the contents.
     s.as_mut().dec_weak();
 
-    s.as_mut().drop_value();
 
     if s.as_mut().weak() == 0 {
         crate::deallocate(s);

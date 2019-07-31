@@ -838,9 +838,6 @@ impl<T: Trace> CcBoxPtr for Cc<T> {
         }
     }
 
-    unsafe fn drop_value(&mut self) {
-        self._ptr.as_mut().drop_value();
-    }
 }
 
 impl<T: Trace> CcBoxPtr for Weak<T> {
@@ -855,23 +852,20 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
         }
     }
 
-    unsafe fn drop_value(&mut self) {
-        self._ptr.as_mut().drop_value();
-    }
 }
 
 impl<T: Trace> CcBoxPtr for CcBox<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData { &self.data }
 
-    unsafe fn drop_value(&mut self) {
-        // Destroy the contained object.
-        ptr::read(&self.value);
-    }
 }
 
 unsafe fn deallocate(ptr: NonNull<CcBoxPtr>) {
     dealloc(ptr.cast().as_ptr(), Layout::for_value(ptr.as_ref()));
+}
+
+unsafe fn drop_value(ptr: NonNull<CcBoxPtr>) {
+    ptr::drop_in_place(ptr.as_ptr());
 }
 
 #[cfg(test)]
@@ -884,6 +878,7 @@ mod tests {
     use std::result::Result::{Err, Ok};
     use std::mem::drop;
     use std::clone::Clone;
+    use collect::collect_cycles;
 
     // Tests copied from `Rc<T>`.
 
@@ -932,6 +927,7 @@ mod tests {
 
     #[test]
     fn weak_self_cyclic() {
+        {
         struct Cycle {
             x: RefCell<Option<Weak<Cycle>>>
         }
@@ -943,7 +939,8 @@ mod tests {
         let a = Cc::new(Cycle { x: RefCell::new(None) });
         let b = a.clone().downgrade();
         *a.x.borrow_mut() = Some(b);
-
+        }
+        collect_cycles();
         // hopefully we don't double-free (or leak)...
     }
 
