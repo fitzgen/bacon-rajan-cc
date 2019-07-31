@@ -40,7 +40,7 @@
 //!
 //! impl Trace for Owner {
 //!     // Note: nothing to trace since `Owner` doesn't own any Cc<T> things.
-//!     fn trace(&mut self, _tracer: &mut Tracer) { }
+//!     fn trace(&self, _tracer: &mut Tracer) { }
 //! }
 //!
 //! struct Gadget {
@@ -105,7 +105,7 @@
 //! }
 //!
 //! impl Trace for Owner {
-//!     fn trace(&mut self, _tracer: &mut Tracer) { }
+//!     fn trace(&self, _tracer: &mut Tracer) { }
 //! }
 //!
 //! struct Gadget {
@@ -115,8 +115,8 @@
 //! }
 //!
 //! impl Trace for Gadget {
-//!     fn trace(&mut self, tracer: &mut Tracer) {
-//!         tracer(&mut self.owner);
+//!     fn trace(&self, tracer: &mut Tracer) {
+//!         tracer(&self.owner);
 //!     }
 //! }
 //!

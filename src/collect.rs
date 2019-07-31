@@ -46,7 +46,7 @@ pub fn add_root(box_ptr: NonNull<CcBoxPtr>) {
 /// }
 ///
 /// impl Trace for Gadget {
-///     fn trace(&mut self, _tracer: &mut Tracer) { /* ... */ }
+///     fn trace(&self, _tracer: &mut Tracer) { /* ... */ }
 /// }
 ///
 /// fn add_child(parent: &mut Cc<RefCell<Gadget>>) -> Cc<RefCell<Gadget>> {
@@ -130,7 +130,7 @@ pub fn number_of_roots_buffered() -> usize {
 /// }
 ///
 /// impl Trace for Gadget {
-///     fn trace(&mut self, tracer: &mut Tracer) {
+///     fn trace(&self, tracer: &mut Tracer) {
 ///         self.parent.trace(tracer);
 ///         self.children.trace(tracer);
 ///     }
