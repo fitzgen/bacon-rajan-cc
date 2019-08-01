@@ -56,7 +56,7 @@ pub trait CcBoxPtr: Trace {
 }
 
 /// Drop the boxed value and deallocate the box if possible.
-pub unsafe fn free(mut s: NonNull<CcBoxPtr>) {
+pub unsafe fn free(mut s: NonNull<dyn CcBoxPtr>) {
     debug_assert!(s.as_mut().strong() == 0);
     debug_assert!(!s.as_mut().buffered());
 

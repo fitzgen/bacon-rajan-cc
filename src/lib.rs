@@ -312,7 +312,7 @@ impl<T: Trace> Cc<T> {
         }
 
         self.data().buffered.set(true);
-        let ptr : NonNull<CcBoxPtr> = self._ptr;
+        let ptr : NonNull<dyn CcBoxPtr> = self._ptr;
         collect::add_root(ptr);
     }
 }
@@ -860,11 +860,11 @@ impl<T: Trace> CcBoxPtr for CcBox<T> {
 
 }
 
-unsafe fn deallocate(ptr: NonNull<CcBoxPtr>) {
+unsafe fn deallocate(ptr: NonNull<dyn CcBoxPtr>) {
     dealloc(ptr.cast().as_ptr(), Layout::for_value(ptr.as_ref()));
 }
 
-unsafe fn drop_value(ptr: NonNull<CcBoxPtr>) {
+unsafe fn drop_value(ptr: NonNull<dyn CcBoxPtr>) {
     ptr::drop_in_place(ptr.as_ptr());
 }
 
