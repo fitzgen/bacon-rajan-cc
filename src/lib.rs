@@ -1153,4 +1153,37 @@ mod tests {
         }
         collect_cycles();
     }
+
+    #[test]
+    fn test_retain_weak() {
+        let retained_weak_a;
+        {
+            struct A {
+                x: Cc<RefCell<Option<A>>>,
+            }
+            struct WeakA {
+                _x: Weak<RefCell<Option<A>>>
+            }
+            impl A {
+                fn downgrade(this: &Self) -> WeakA {
+                    WeakA { _x: Cc::downgrade(&this.x) }
+                }
+            }
+            impl Clone for A {
+                fn clone(&self) -> Self {
+                    A { x: self.x.clone() }
+                }
+            }
+            impl Trace for A {
+                fn trace(&self, tracer: &mut Tracer) {
+                    self.x.trace(tracer);
+                }
+            }
+            let a = A { x: Cc::new(RefCell::new(None)) };
+            *a.x.borrow_mut() = Some(a.clone());
+            retained_weak_a = A::downgrade(&a);
+        }
+        collect_cycles();
+        let _x = retained_weak_a;
+    }
 }
