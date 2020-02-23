@@ -316,12 +316,13 @@ fn collect_roots() {
         unsafe { free(*i); }
     }
 
-    // It's now safe to deallocate the memory.
+    // It's now safe to deallocate the memory as long as we are the last weak reference.
     for i in &white {
         unsafe {
-            // Make sure our weak reference is the only one.
-            debug_assert!(i.as_ref().weak() == 1);
-            crate::deallocate(*i);
+            // Only deallocate if our weak reference is the only one.
+            if i.as_ref().weak() == 1 {
+                crate::deallocate(*i);
+            }
         }
     }
 }
