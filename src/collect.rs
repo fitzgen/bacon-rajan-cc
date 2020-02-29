@@ -322,6 +322,9 @@ fn collect_roots() {
             // Only deallocate if our weak reference is the only one.
             if i.as_ref().weak() == 1 {
                 crate::deallocate(*i);
+            } else {
+                // undo s.inc_weak() from collect_white
+                i.as_ref().dec_weak();
             }
         }
     }
