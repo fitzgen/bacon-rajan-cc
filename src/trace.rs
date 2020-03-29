@@ -212,20 +212,37 @@ mod impls {
     mod collections {
         pub use super::*;
         use std::collections;
-        use std::hash;
 
-        impl<K, V: Trace> Trace for collections::BTreeMap<K, V> {
+        impl<K: Trace, V: Trace> Trace for collections::BTreeMap<K, V> {
             fn trace(&self, tracer: &mut Tracer) {
-                for (_, v) in self {
+                for (k, v) in self {
+                    k.trace(tracer);
                     v.trace(tracer);
                 }
             }
         }
 
-        impl<K: Eq + hash::Hash + Trace, V: Trace> Trace for collections::HashMap<K, V> {
+        impl<T: Trace> Trace for collections::BTreeSet<T> {
             fn trace(&self, tracer: &mut Tracer) {
-                for (_, v) in self {
+                for t in self {
+                    t.trace(tracer);
+                }
+            }
+        }
+
+        impl<K: Trace, V: Trace> Trace for collections::HashMap<K, V> {
+            fn trace(&self, tracer: &mut Tracer) {
+                for (k, v) in self {
+                    k.trace(tracer);
                     v.trace(tracer);
+                }
+            }
+        }
+
+        impl<T: Trace> Trace for collections::HashSet<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                for t in self {
+                    t.trace(tracer);
                 }
             }
         }
