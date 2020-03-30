@@ -18,3 +18,4 @@ keywords=["cc", "gc", "mark", "sweep", "garbage"]
 name = "bacon_rajan_cc"
 
 [dependencies]
+lazy_static = "1.4.0"

@@ -176,8 +176,12 @@ use core::option::Option::{Some, None};
 use core::ptr;
 use core::result::Result;
 use core::result::Result::{Ok, Err};
+use core::marker::PhantomData;
 
 use std::alloc::{dealloc, Layout};
+
+#[macro_use]
+extern crate lazy_static;
 
 /// Tracing traits, types, and implementation.
 pub mod trace;
@@ -236,7 +240,10 @@ pub struct Cc<T: 'static + Trace> {
     // FIXME #12808: strange names to try to avoid interfering with field
     // accesses of the contained type via Deref
     _ptr: NonNull<CcBox<T>>,
+    phantom: PhantomData<CcBox<T>>,
 }
+unsafe impl<T: Sized + Sync + Send + Trace> Send for Cc<T> {}
+unsafe impl<T: Sized + Sync + Send + Trace> Sync for Cc<T> {}
 
 impl<T: Trace> Cc<T> {
     /// Constructs a new `Cc<T>`.
@@ -264,6 +271,7 @@ impl<T: Trace> Cc<T> {
                         color: Cell::new(Color::Black),
                     }
                 }))),
+                phantom: PhantomData
             }
         }
     }
@@ -281,7 +289,7 @@ impl<T: Trace> Cc<T> {
     /// ```
     pub fn downgrade(&self) -> Weak<T> {
         self.inc_weak();
-        Weak { _ptr: self._ptr }
+        Weak { _ptr: self._ptr, phantom: PhantomData }
     }
 }
 
@@ -512,7 +520,7 @@ impl<T: Trace> Clone for Cc<T> {
     #[inline]
     fn clone(&self) -> Cc<T> {
         self.inc_strong();
-        Cc { _ptr: self._ptr }
+        Cc { _ptr: self._ptr, phantom: PhantomData }
     }
 }
 
@@ -705,6 +713,7 @@ pub struct Weak<T: Trace> {
     // FIXME #12808: strange names to try to avoid interfering with
     // field accesses of the contained type via Deref
     _ptr: NonNull<CcBox<T>>,
+    phantom: PhantomData<CcBox<T>>,
 }
 
 impl<T: Trace> Weak<T> {
@@ -732,7 +741,7 @@ impl<T: Trace> Weak<T> {
             None
         } else {
             self.inc_strong();
-            Some(Cc { _ptr: self._ptr })
+            Some(Cc { _ptr: self._ptr, phantom: PhantomData })
         }
     }
 }
@@ -795,7 +804,7 @@ impl<T: Trace> Clone for Weak<T> {
     #[inline]
     fn clone(&self) -> Weak<T> {
         self.inc_weak();
-        Weak { _ptr: self._ptr }
+        Weak { _ptr: self._ptr, phantom: PhantomData }
     }
 }
 
