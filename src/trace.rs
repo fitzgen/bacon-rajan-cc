@@ -458,12 +458,18 @@ mod impls {
         pub use super::*;
         use std::rc;
 
-        impl<T> Trace for rc::Rc<T> {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        impl<T: Trace> Trace for rc::Rc<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                (**self).trace(tracer);
+            }
         }
 
-        impl<T> Trace for rc::Weak<T> {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        impl<T: Trace> Trace for rc::Weak<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                if let Some(t) = self.upgrade() {
+                    (*t).trace(tracer);
+                }
+            }
         }
     }
 
@@ -484,8 +490,18 @@ mod impls {
         pub use super::*;
         use std::sync;
 
-        impl<T> Trace for sync::Arc<T> {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        impl<T: Trace> Trace for sync::Arc<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                (**self).trace(tracer);
+            }
+        }
+
+        impl<T: Trace> Trace for sync::Weak<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                if let Some(t) = self.upgrade() {
+                    (*t).trace(tracer);
+                }
+            }
         }
 
         impl Trace for sync::Barrier {
@@ -496,8 +512,12 @@ mod impls {
             fn trace(&self, _tracer: &mut Tracer) { }
         }
 
-        impl<T> Trace for sync::Mutex<T> {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        impl<T: Trace> Trace for sync::Mutex<T> {
+            fn trace(&self, tracer: &mut Tracer) {
+                if let Ok(t) = self.lock() {
+                    t.trace(tracer);
+                }
+            }
         }
 
         impl Trace for sync::Once {
@@ -510,8 +530,8 @@ mod impls {
 
         impl<T: Trace> Trace for sync::RwLock<T> {
             fn trace(&self, tracer: &mut Tracer) {
-                if let Ok(v) = self.write() {
-                    v.trace(tracer);
+                if let Ok(t) = self.write() {
+                    t.trace(tracer);
                 }
             }
         }
