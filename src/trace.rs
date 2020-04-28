@@ -197,13 +197,18 @@ mod impls {
 
         impl<T: Trace + ?Sized> Trace for cell::RefCell<T> {
             fn trace(&self, tracer: &mut Tracer) {
-                // If the RefCell is currently borrowed we
-                // assume there's an outstanding reference to this
-                // cycle so it's ok if we don't trace through it.
-                // If the borrow gets leaked somehow then we're going
-                // to leak the cycle.
+                // scan() will mark some nodes as white which may
+                // need to be remarked as black during further recursion,
+                // so it is important that we can visit the same
+                // node twice through the depth first tranversal.
+                // Otherwise a node can be freed while it is still
+                // in use (failed to remark as black in scan_black()).
+                let mut children: Vec<*const dyn CcBoxPtr> = Vec::new();
                 if let Ok(x) = self.try_borrow_mut() {
-                    x.trace(tracer);
+                    x.trace(&mut |y: &(dyn CcBoxPtr + 'static)| children.push(y));
+                }
+                for child in children {
+                    unsafe { tracer(&*child) };
                 }
             }
         }
