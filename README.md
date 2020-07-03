@@ -35,3 +35,8 @@ use bacon_rajan_cc::{Cc, Trace, Tracer};
 
 [paper]: http://researcher.watson.ibm.com/researcher/files/us-bacon/Bacon01Concurrent.pdf
 [docs]: https://docs.rs/bacon_rajan_cc/
+
+## Alternatives
+https://github.com/withoutboats/shifgrethor
+https://github.com/Manishearth/rust-gc
+https://github.com/Others/shredder
