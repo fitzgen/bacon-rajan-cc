@@ -1186,4 +1186,42 @@ mod tests {
         collect_cycles();
         let _x = retained_weak_a;
     }
+
+    #[test]
+    fn test_double_visit_scan_black() {
+        let count = std::rc::Rc::new(std::cell::Cell::new(0));
+        #[derive(Clone)]
+        struct A {
+            count: std::rc::Rc<std::cell::Cell<u32>>,
+            next_op: Cc<RefCell<Option<A>>>
+        }
+        impl Trace for A {
+            fn trace(&self, tracer: &mut Tracer) {
+                self.next_op.trace(tracer);
+            }
+        }
+        impl A {
+            fn new(count: std::rc::Rc<std::cell::Cell<u32>>, next_op: Option<A>) -> A {
+                count.set(count.get() + 1);
+                A {
+                    count,
+                    next_op: Cc::new(RefCell::new(next_op))
+                }
+            }
+        }
+        impl Drop for A {
+            fn drop(&mut self) {
+                self.count.set(self.count.get() - 1);
+            }
+        }
+        {
+            let z = A::new(count.clone(), None);
+            let y = A::new(count.clone(), Some(z.clone()));
+            let x = A::new(count.clone(), Some(y));
+            *z.next_op.borrow_mut() = Some(x);
+            let _w = z.clone();
+            collect_cycles();
+        }
+        assert_eq!(count.get(), 0);
+    }
 }
