@@ -1190,10 +1190,18 @@ mod tests {
     #[test]
     fn test_double_visit_scan_black() {
         let count = std::rc::Rc::new(std::cell::Cell::new(0));
-        #[derive(Clone)]
         struct A {
-            count: std::rc::Rc<std::cell::Cell<u32>>,
+            count: std::rc::Rc<std::cell::Cell<i32>>,
             next_op: Cc<RefCell<Option<A>>>
+        }
+        impl Clone for A {
+            fn clone(&self) -> Self {
+                self.count.set(self.count.get() + 1);
+                A {
+                    count: self.count.clone(),
+                    next_op: self.next_op.clone()
+                }
+            }
         }
         impl Trace for A {
             fn trace(&self, tracer: &mut Tracer) {
@@ -1201,7 +1209,7 @@ mod tests {
             }
         }
         impl A {
-            fn new(count: std::rc::Rc<std::cell::Cell<u32>>, next_op: Option<A>) -> A {
+            fn new(count: std::rc::Rc<std::cell::Cell<i32>>, next_op: Option<A>) -> A {
                 count.set(count.get() + 1);
                 A {
                     count,
@@ -1215,11 +1223,16 @@ mod tests {
             }
         }
         {
-            let z = A::new(count.clone(), None);
-            let y = A::new(count.clone(), Some(z.clone()));
-            let x = A::new(count.clone(), Some(y));
-            *z.next_op.borrow_mut() = Some(x);
-            let _w = z.clone();
+            let w;
+            {
+                let z = A::new(count.clone(), None);
+                let y = A::new(count.clone(), Some(z.clone()));
+                let x = A::new(count.clone(), Some(y));
+                *z.next_op.borrow_mut() = Some(x);
+                w = z.clone();
+            }
+            collect_cycles();
+            *w.next_op.borrow_mut() = None;
         }
         collect_cycles();
         assert_eq!(count.get(), 0);
