@@ -1223,16 +1223,16 @@ mod tests {
             }
         }
         {
-            let w;
+            let q;
             {
                 let z = A::new(count.clone(), None);
                 let y = A::new(count.clone(), Some(z.clone()));
                 let x = A::new(count.clone(), Some(y));
-                *z.next_op.borrow_mut() = Some(x);
-                w = z.clone();
+                *z.next_op.borrow_mut() = Some(x.clone());
+                q = x;
             }
             collect_cycles();
-            *w.next_op.borrow_mut() = None;
+            *q.next_op.borrow_mut() = None;
         }
         collect_cycles();
         assert_eq!(count.get(), 0);
