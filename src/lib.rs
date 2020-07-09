@@ -1220,8 +1220,8 @@ mod tests {
             let x = A::new(count.clone(), Some(y));
             *z.next_op.borrow_mut() = Some(x);
             let _w = z.clone();
-            collect_cycles();
         }
+        collect_cycles();
         assert_eq!(count.get(), 0);
     }
 }
