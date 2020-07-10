@@ -7,7 +7,7 @@
 `Cc<T>`: A reference counted type with cycle collection for Rust. Concurrent or
 stop-the-world. Based on the paper
 ["Concurrent Cycle Collection in Reference Counted Systems"][paper] by David
-F. Bacon and V.T. Rajan.
+F. Bacon and V.T. Rajan. [JVM implementation](https://github.com/JikesRVM/JikesRVM/blob/8f6ac1854a73059595587b63fb4e8a3553bc7ff1/rvm/src/vm/memoryManagers/concurrent/VM_Allocator.java)
 
 Currently only stop-the-world, not concurrent.
 
