@@ -247,7 +247,7 @@ fn scan_roots() {
     fn scan_black(s: &dyn CcBoxPtr) {
         s.data().color.set(Color::Black);
         s.trace(&mut |t| {
-            t.inc_strong();
+            t.data().strong.set(t.strong() + 1);
             if t.color() != Color::Black {
                 scan_black(t);
             }
