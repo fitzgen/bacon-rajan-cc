@@ -197,14 +197,9 @@ mod impls {
 
         impl<T: Trace + ?Sized> Trace for cell::RefCell<T> {
             fn trace(&self, tracer: &mut Tracer) {
-                // If the RefCell is currently borrowed we
-                // assume there's an outstanding reference to this
-                // cycle so it's ok if we don't trace through it.
-                // If the borrow gets leaked somehow then we're going
-                // to leak the cycle.
-                if let Ok(x) = self.try_borrow_mut() {
-                    x.trace(tracer);
-                }
+                // We'll panic if we can't borrow. I'm not
+                // sure if we have a better option.
+                self.borrow().trace(tracer);
             }
         }
     }
