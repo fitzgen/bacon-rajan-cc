@@ -19,7 +19,7 @@ Note this requires at least Rust 1.28 for the std::alloc api's.
 
 ```toml
 [dependencies]
-bacon_rajan_cc = "0.2"
+bacon_rajan_cc = "0.3"
 ```
 
 Then, in your crate:
