@@ -37,6 +37,7 @@ use bacon_rajan_cc::{Cc, Trace, Tracer};
 [docs]: https://docs.rs/bacon_rajan_cc/
 
 ## Alternatives
-https://github.com/withoutboats/shifgrethor
-https://github.com/Manishearth/rust-gc
-https://github.com/Others/shredder
+- https://github.com/withoutboats/shifgrethor
+- https://github.com/Manishearth/rust-gc
+- https://github.com/Others/shredder
+- https://github.com/jazz-lang/wafflelink (conservative on stack,precise on heap Immix Mark-Region GC with evacuation in Rust)
