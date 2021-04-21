@@ -1246,24 +1246,6 @@ mod tests {
             ty: Cc<Cc<i32>>,
         }
 
-        #[derive(Debug)]
-        struct T {
-            value: i32,
-        }
-
-        impl std::ops::Drop for T {
-            fn drop(&mut self) {
-                println!("dropping T");
-            }
-        }
-
-        impl Trace for T {
-            fn trace(&self, tracer: &mut Tracer) {
-                println!("tracing T");
-                self.value.trace(tracer);
-            }
-        }
-
         // If either of the drops below is missing, we don't get a leak
         let ty = Cc::new(5);
         drop(ty.clone());
