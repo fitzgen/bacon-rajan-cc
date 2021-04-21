@@ -1237,4 +1237,41 @@ mod tests {
         collect_cycles();
         assert_eq!(count.get(), 0);
     }
+
+   #[test]
+    fn test_no_leak_with_double_indirection() {
+        use crate::collect::*;
+        #[derive(Debug, Clone)]
+        struct S {
+            ty: Cc<Cc<i32>>,
+        }
+
+        #[derive(Debug)]
+        struct T {
+            value: i32,
+        }
+
+        impl std::ops::Drop for T {
+            fn drop(&mut self) {
+                println!("dropping T");
+            }
+        }
+
+        impl Trace for T {
+            fn trace(&self, tracer: &mut Tracer) {
+                println!("tracing T");
+                self.value.trace(tracer);
+            }
+        }
+
+        // If either of the drops below is missing, we don't get a leak
+        let ty = Cc::new(5);
+        drop(ty.clone());
+        let s = S { ty: Cc::new(ty) };
+        drop(s.ty.clone());
+
+        // if collect_cycles() is called before s is dropped, we don't get a leak
+        std::mem::drop(s);
+        collect_cycles();
+    }
 }

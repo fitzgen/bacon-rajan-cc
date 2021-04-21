@@ -306,6 +306,9 @@ fn collect_roots() {
         for s in v.drain(..) {
             let ptr : &dyn CcBoxPtr = unsafe { s.as_ref() };
             ptr.data().buffered.set(false);
+            if ptr.color() == Color::Black && ptr.strong() == 0 {
+                ptr.data().color.set(Color::White);
+            }
             collect_white(ptr, &mut white);
         }
     });
