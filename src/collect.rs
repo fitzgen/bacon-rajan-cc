@@ -313,6 +313,7 @@ fn collect_roots() {
     // Run drop on each of nodes. The previous increment of the weak count during traversal will
     // ensure that all of the memory stays alive during this loop.
     for i in &white {
+        unsafe { crate::drop_value(*i); }
         unsafe { free(*i); }
     }
 

@@ -288,6 +288,9 @@ impl<T: Trace> Cc<T> {
 impl<T: Trace> Cc<T> {
     unsafe fn release(&mut self) {
         debug_assert!(self.strong() == 0);
+
+        crate::drop_value(self._ptr);
+
         self.data().color.set(Color::Black);
 
         // If it is in the buffer, then it will be freed later in the
@@ -864,7 +867,7 @@ unsafe fn deallocate(ptr: NonNull<dyn CcBoxPtr>) {
     dealloc(ptr.cast().as_ptr(), Layout::for_value(ptr.as_ref()));
 }
 
-unsafe fn drop_value(ptr: NonNull<dyn CcBoxPtr>) {
+pub(crate) unsafe fn drop_value(ptr: NonNull<dyn CcBoxPtr>) {
     ptr::drop_in_place(ptr.as_ptr());
 }
 
@@ -1185,6 +1188,25 @@ mod tests {
         }
         collect_cycles();
         let _x = retained_weak_a;
+    }
+
+    #[test]
+    fn test_no_leak_with_double_indirection() {
+        use crate::collect::*;
+        #[derive(Debug, Clone)]
+        struct S {
+            ty: Cc<Cc<i32>>,
+        }
+
+        // If either of the drops below is missing, we don't get a leak
+        let ty = Cc::new(5);
+        drop(ty.clone());
+        let s = S { ty: Cc::new(ty) };
+        drop(s.ty.clone());
+
+        // if collect_cycles() is called before s is dropped, we don't get a leak
+        std::mem::drop(s);
+        collect_cycles();
     }
 
     #[test]

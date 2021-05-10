@@ -55,17 +55,14 @@ pub trait CcBoxPtr: Trace {
     fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
 }
 
-/// Drop the boxed value and deallocate the box if possible.
+/// Deallocate the box if possible. `s` should already have been dropped.
 pub unsafe fn free(mut s: NonNull<dyn CcBoxPtr>) {
     debug_assert!(s.as_mut().strong() == 0);
     debug_assert!(!s.as_mut().buffered());
 
-    crate::drop_value(s);
-
     // Remove the implicit "strong weak" pointer now that we've destroyed
     // the contents.
     s.as_mut().dec_weak();
-
 
     if s.as_mut().weak() == 0 {
         crate::deallocate(s);
