@@ -1259,4 +1259,75 @@ mod tests {
         collect_cycles();
         assert_eq!(count.get(), 0);
     }
+
+    #[test]
+    fn extra_free() {
+        struct Env {
+            pub closures: Vec<Cc<RefCell<Clos>>>,
+            pub next: Option<Cc<Env>>,
+        }
+        impl Trace for Env {
+            fn trace(&self, tracer: &mut Tracer) {
+                self.closures.trace(tracer);
+                self.next.trace(tracer);
+            }
+        }
+        struct Clos {
+            pub env: Cc<Env>,
+        }
+        impl Trace for Clos {
+            fn trace(&self, tracer: &mut Tracer) {
+                self.env.trace(tracer);
+            }
+        }
+
+        let live_env = {
+            let base_env = Cc::new(Env {
+                closures: vec![],
+                next: None,
+            });
+
+            let env_a = Cc::new(Env {
+                closures: vec![Cc::new(RefCell::new(Clos {
+                    env: base_env.clone(),
+                }))],
+                next: Some(base_env.clone()),
+            });
+
+            let circular_env = Cc::new(Env {
+                closures: vec![Cc::new(RefCell::new(Clos {
+                    env: base_env.clone(),
+                }))],
+                next: Some(env_a.clone()),
+            });
+            circular_env.closures[0].replace(Clos {
+                env: circular_env.clone(),
+            });
+
+            let live_env = Cc::new(Env {
+                closures: vec![],
+                next: Some(env_a.clone()),
+            });
+
+            drop(base_env); // don't need the stack ref
+            drop(env_a); // don't need the stack ref
+            collect_cycles();
+
+            drop(circular_env); // cycle root
+            collect_cycles(); // <- incorrectly? frees env_a.
+                              // mark_gray decrements env_a and does
+                              // not reinstate (it's the root of the
+                              // black region). collect_white frees
+                              // circular_env, which decrements env_a
+                              // again - to zero and frees it...
+
+            live_env
+        };
+
+        if let Some(a) = &live_env.next {
+            assert_eq!(a.closures.len(), 1);
+        }
+        drop(live_env);
+        collect_cycles();
+    }
 }

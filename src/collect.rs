@@ -313,6 +313,17 @@ fn collect_roots() {
     // Run drop on each of nodes. The previous increment of the weak count during traversal will
     // ensure that all of the memory stays alive during this loop.
     for i in &white {
+        // Calling drop() will decrement the reference count on any of our live children.
+        // However, during trial deletion the reference count was already decremented
+        // so we'll end up decrementing twice. To avoid that, we increment the count
+        // just before calling drop() so that it balances out. This is another difference
+        // from the original paper caused by having destructors that we need to run.
+        let ptr : &dyn CcBoxPtr = unsafe { i.as_ref() };
+        ptr.trace(&mut |t| {
+            if t.strong() > 0 {
+                t.data().strong.set(t.strong() + 1)
+            }
+        });
         unsafe { crate::drop_value(*i); }
         unsafe { free(*i); }
     }
