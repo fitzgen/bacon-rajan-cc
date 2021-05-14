@@ -46,7 +46,10 @@ pub fn add_root(box_ptr: NonNull<dyn CcBoxPtr>) {
 /// }
 ///
 /// impl Trace for Gadget {
-///     fn trace(&self, _tracer: &mut Tracer) { /* ... */ }
+///     fn trace(&self, tracer: &mut Tracer) {
+///          self.parent.trace(tracer);
+///          self.children.trace(tracer);
+///     }
 /// }
 ///
 /// fn add_child(parent: &mut Cc<RefCell<Gadget>>) -> Cc<RefCell<Gadget>> {
@@ -80,9 +83,9 @@ pub fn add_root(box_ptr: NonNull<dyn CcBoxPtr>) {
 ///     assert_eq!(number_of_roots_buffered(),
 ///                1 /* parent */ + 10 /* children */);
 ///
-///     // If we had actually implemented `Trace` for `Gadget` rather than just
-///     // stubbing it out, we could call `collect_cycles` here to reclaim the
-///     // cycle.
+///     // reclaim the cycle
+///     bacon_rajan_cc::collect_cycles();
+///     assert_eq!(number_of_roots_buffered(), 0);
 /// }
 /// ```
 pub fn number_of_roots_buffered() -> usize {

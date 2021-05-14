@@ -31,7 +31,7 @@
 //! and have the `Owner` remain allocated as long as any `Gadget` points at it.
 //!
 //! ```rust
-//! use bacon_rajan_cc::{Cc, Trace, Tracer};
+//! use bacon_rajan_cc::{Cc, Trace, Tracer, collect_cycles};
 //!
 //! struct Owner {
 //!     name: String
@@ -74,6 +74,9 @@
 //!     // At the end of the method, gadget1 and gadget2 get destroyed, and with
 //!     // them the last counted references to our Owner. Gadget Man now gets
 //!     // destroyed as well.
+//!     drop(gadget1);
+//!     drop(gadget2);
+//!     collect_cycles()
 //! }
 //! ```
 //!
@@ -95,7 +98,7 @@
 //! documentation for more details on interior mutability.
 //!
 //! ```rust
-//! use bacon_rajan_cc::{Cc, Weak, Trace, Tracer};
+//! use bacon_rajan_cc::{Cc, Weak, Trace, Tracer, collect_cycles};
 //! use std::cell::RefCell;
 //!
 //! struct Owner {
@@ -156,6 +159,8 @@
 //!     // destroyed. There are now no strong (`Cc<T>`) references to the gadgets.
 //!     // Once they get destroyed, the Gadgets get destroyed. This zeroes the
 //!     // reference count on Gadget Man, so he gets destroyed as well.
+//!     drop((gadget_owner, gadget1, gadget2));
+//!     collect_cycles();
 //! }
 //! ```
 
@@ -328,14 +333,16 @@ impl<T: 'static + Trace> Cc<T> {
     ///
     /// ```
     /// use bacon_rajan_cc;
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
+    /// {
+    ///   let five = Cc::new(5);
+    ///   assert_eq!(five.is_unique(), true);
     ///
-    /// let five = Cc::new(5);
-    /// assert_eq!(five.is_unique(), true);
-    ///
-    /// let another_five = five.clone();
-    /// assert_eq!(five.is_unique(), false);
-    /// assert_eq!(another_five.is_unique(), false);
+    ///   let another_five = five.clone();
+    ///   assert_eq!(five.is_unique(), false);
+    ///   assert_eq!(another_five.is_unique(), false);
+    /// }
+    /// collect_cycles();
     /// ```
     #[inline]
     pub fn is_unique(&self) -> bool {
@@ -349,14 +356,16 @@ impl<T: 'static + Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
+    /// {
+    ///   let x = Cc::new(3);
+    ///   assert_eq!(x.try_unwrap(), Ok(3));
     ///
-    /// let x = Cc::new(3);
-    /// assert_eq!(x.try_unwrap(), Ok(3));
-    ///
-    /// let x = Cc::new(4);
-    /// let _y = x.clone();
-    /// assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
+    ///   let x = Cc::new(4);
+    ///   let _y = x.clone();
+    ///   assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
+    /// }
+    /// collect_cycles();
     /// ```
     #[inline]
     pub fn try_unwrap(self) -> Result<T, Cc<T>> {
@@ -383,14 +392,16 @@ impl<T: 'static + Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
+    /// {
+    ///   let mut x = Cc::new(3);
+    ///   *Cc::get_mut(&mut x).unwrap() = 4;
+    ///   assert_eq!(*x, 4);
     ///
-    /// let mut x = Cc::new(3);
-    /// *Cc::get_mut(&mut x).unwrap() = 4;
-    /// assert_eq!(*x, 4);
-    ///
-    /// let _y = x.clone();
-    /// assert!(Cc::get_mut(&mut x).is_none());
+    ///   let _y = x.clone();
+    ///   assert!(Cc::get_mut(&mut x).is_none());
+    /// }
+    /// collect_cycles();
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Option<&mut T> {
@@ -506,11 +517,12 @@ impl<T: Trace> Clone for Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
     ///
     /// let five = Cc::new(5);
     ///
-    /// five.clone();
+    /// drop(five.clone());
+    /// collect_cycles();
     /// ```
     #[inline]
     fn clone(&self) -> Cc<T> {
@@ -722,13 +734,15 @@ impl<T: Trace> Weak<T> {
     /// # Examples
     ///
     /// ```
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
     ///
     /// let five = Cc::new(5);
     ///
     /// let weak_five = five.downgrade();
     ///
     /// let strong_five: Option<Cc<_>> = weak_five.upgrade();
+    /// drop((five, weak_five, strong_five));
+    /// collect_cycles();
     /// ```
     pub fn upgrade(&self) -> Option<Cc<T>> {
         if self.strong() == 0 {
