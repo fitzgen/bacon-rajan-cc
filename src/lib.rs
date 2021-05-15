@@ -851,7 +851,13 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
             // the contract anyway.
             // This allows the null check to be elided in the destructor if we
             // manipulated the reference count in the same function.
-            &self._ptr.as_ref().data
+
+            // We specifically avoid taking a reference to the CcBox because
+            // it will cover the containing T and there may already be a mutable
+            // reference to it on the stack because we can end up being called
+            // from the drop method of strong Cc<T> to the same data.
+            // The standard library does the same sort of thing using `WeakInner`
+            &(*self._ptr.as_ptr()).data
         }
     }
 
@@ -1328,6 +1334,29 @@ mod tests {
             assert_eq!(a.closures.len(), 1);
         }
         drop(live_env);
+        collect_cycles();
+    }
+
+    #[test]
+    fn weak_cycle() {
+        type Owner = RefCell<Option<Weak<Gadget>>>;
+        struct Gadget {
+            owner: Cc<Owner>
+        }
+
+        impl Trace for Gadget {
+            fn trace(&self, tracer: &mut Tracer) {
+                tracer(&self.owner);
+            }
+        }
+
+        let gadget_owner = Cc::new(RefCell::new(None));
+        let gadget = Cc::new(Gadget{owner: gadget_owner.clone()});
+
+        *gadget_owner.borrow_mut() = Some(gadget.clone().downgrade());
+
+        drop(gadget_owner);
+        drop(gadget);
         collect_cycles();
     }
 }
