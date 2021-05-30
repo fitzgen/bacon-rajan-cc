@@ -877,6 +877,8 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
 
 }
 
+// We also implement CcBoxPtr on CcBox so we can add and operate on type erased CcBox's
+// added to the ROOTS table
 impl<T: Trace> CcBoxPtr for CcBox<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData { &self.data }
