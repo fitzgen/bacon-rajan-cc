@@ -275,7 +275,7 @@ fn scan_roots() {
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         for s in &mut *v {
-            let p : &mut dyn CcBoxPtr = unsafe { s.as_mut() };
+            let p : &dyn CcBoxPtr = unsafe { s.as_ref() };
             scan(p);
         }
     });
