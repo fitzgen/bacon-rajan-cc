@@ -452,6 +452,29 @@ impl<T: 'static + Clone + Trace> Cc<T> {
     }
 }
 
+impl<T: Trace> Cc<T> {
+    // Returns `true` if the two `Cc`s point to the same allocation
+    /// (in a vein similar to [`ptr::eq`]).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bacon_rajan_cc::Cc;
+    ///
+    /// let five = Cc::new(5);
+    /// let same_five = Cc::clone(&five);
+    /// let other_five = Cc::new(5);
+    ///
+    /// assert!(Cc::ptr_eq(&five, &same_five));
+    /// assert!(!Cc::ptr_eq(&five, &other_five));
+    /// ```
+    ///
+    /// [`ptr::eq`]: core::ptr::eq
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        this._ptr.as_ptr() == other._ptr.as_ptr()
+    }
+}
+
 impl<T: Trace> Deref for Cc<T> {
     type Target = T;
 
