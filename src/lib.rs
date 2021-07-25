@@ -459,7 +459,7 @@ impl<T: Trace> Cc<T> {
     /// # Examples
     ///
     /// ```
-    /// use bacon_rajan_cc::Cc;
+    /// use bacon_rajan_cc::{Cc, collect_cycles};
     ///
     /// let five = Cc::new(5);
     /// let same_five = Cc::clone(&five);
@@ -467,6 +467,7 @@ impl<T: Trace> Cc<T> {
     ///
     /// assert!(Cc::ptr_eq(&five, &same_five));
     /// assert!(!Cc::ptr_eq(&five, &other_five));
+    /// collect_cycles();
     /// ```
     ///
     /// [`ptr::eq`]: core::ptr::eq
