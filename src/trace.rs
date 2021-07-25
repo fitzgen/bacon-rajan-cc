@@ -225,7 +225,7 @@ mod impls {
             }
         }
 
-        impl<K: Trace, V: Trace> Trace for collections::HashMap<K, V> {
+        impl<K: Trace, V: Trace, S> Trace for collections::HashMap<K, V, S> {
             fn trace(&self, tracer: &mut Tracer) {
                 for (k, v) in self {
                     k.trace(tracer);
@@ -234,7 +234,7 @@ mod impls {
             }
         }
 
-        impl<T: Trace> Trace for collections::HashSet<T> {
+        impl<T: Trace, S> Trace for collections::HashSet<T, S> {
             fn trace(&self, tracer: &mut Tracer) {
                 for t in self {
                     t.trace(tracer);
