@@ -7,9 +7,11 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use super::{CcBoxData, Color};
+use core::ptr::NonNull;
+
 use trace::Trace;
-use std::ptr::NonNull;
+
+use super::{CcBoxData, Color};
 
 /// A trait to group all of the operations we need to be able to do on
 /// `CcBox<T>`'s, potentially across different T types.
