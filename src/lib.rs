@@ -333,12 +333,12 @@ impl<T: 'static + Trace> Cc<T> {
     /// use bacon_rajan_cc;
     /// use bacon_rajan_cc::{Cc, collect_cycles};
     /// {
-    ///   let five = Cc::new(5);
-    ///   assert_eq!(five.is_unique(), true);
+    ///     let five = Cc::new(5);
+    ///     assert_eq!(five.is_unique(), true);
     ///
-    ///   let another_five = five.clone();
-    ///   assert_eq!(five.is_unique(), false);
-    ///   assert_eq!(another_five.is_unique(), false);
+    ///     let another_five = five.clone();
+    ///     assert_eq!(five.is_unique(), false);
+    ///     assert_eq!(another_five.is_unique(), false);
     /// }
     /// collect_cycles();
     /// ```
@@ -356,12 +356,12 @@ impl<T: 'static + Trace> Cc<T> {
     /// ```
     /// use bacon_rajan_cc::{Cc, collect_cycles};
     /// {
-    ///   let x = Cc::new(3);
-    ///   assert_eq!(x.try_unwrap(), Ok(3));
+    ///     let x = Cc::new(3);
+    ///     assert_eq!(x.try_unwrap(), Ok(3));
     ///
-    ///   let x = Cc::new(4);
-    ///   let _y = x.clone();
-    ///   assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
+    ///     let x = Cc::new(4);
+    ///     let _y = x.clone();
+    ///     assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
     /// }
     /// collect_cycles();
     /// ```
@@ -392,12 +392,12 @@ impl<T: 'static + Trace> Cc<T> {
     /// ```
     /// use bacon_rajan_cc::{Cc, collect_cycles};
     /// {
-    ///   let mut x = Cc::new(3);
-    ///   *Cc::get_mut(&mut x).unwrap() = 4;
-    ///   assert_eq!(*x, 4);
+    ///     let mut x = Cc::new(3);
+    ///     *Cc::get_mut(&mut x).unwrap() = 4;
+    ///     assert_eq!(*x, 4);
     ///
-    ///   let _y = x.clone();
-    ///   assert!(Cc::get_mut(&mut x).is_none());
+    ///     let _y = x.clone();
+    ///     assert!(Cc::get_mut(&mut x).is_none());
     /// }
     /// collect_cycles();
     /// ```
@@ -459,12 +459,12 @@ impl<T: Trace> Cc<T> {
     /// ```
     /// use bacon_rajan_cc::{Cc, collect_cycles};
     /// {
-    ///    let five = Cc::new(5);
-    ///    let same_five = Cc::clone(&five);
-    ///    let other_five = Cc::new(5);
+    ///     let five = Cc::new(5);
+    ///     let same_five = Cc::clone(&five);
+    ///     let other_five = Cc::new(5);
     ///
-    ///    assert!(Cc::ptr_eq(&five, &same_five));
-    ///    assert!(!Cc::ptr_eq(&five, &other_five));
+    ///     assert!(Cc::ptr_eq(&five, &same_five));
+    ///     assert!(!Cc::ptr_eq(&five, &other_five));
     /// }
     /// collect_cycles();
     /// ```
@@ -933,10 +933,10 @@ mod tests {
     #[test]
     fn test_clone() {
         {
-        let x = Cc::new(RefCell::new(5));
-        let y = x.clone();
-        *x.borrow_mut() = 20;
-        assert_eq!(*y.borrow(), 20);
+            let x = Cc::new(RefCell::new(5));
+            let y = x.clone();
+            *x.borrow_mut() = 20;
+            assert_eq!(*y.borrow(), 20);
         }
         collect_cycles();
     }
@@ -950,10 +950,10 @@ mod tests {
     #[test]
     fn test_simple_clone() {
         {
-        let x = Cc::new(5);
-        let y = x.clone();
-        assert_eq!(*x, 5);
-        assert_eq!(*y, 5);
+            let x = Cc::new(5);
+            let y = x.clone();
+            assert_eq!(*x, 5);
+            assert_eq!(*y, 5);
         }
         collect_cycles();
     }
@@ -967,9 +967,9 @@ mod tests {
     #[test]
     fn test_live() {
         {
-        let x = Cc::new(5);
-        let y = x.downgrade();
-        assert!(y.upgrade().is_some());
+            let x = Cc::new(5);
+            let y = x.downgrade();
+            assert!(y.upgrade().is_some());
         }
         collect_cycles();
     }
@@ -985,17 +985,19 @@ mod tests {
     #[test]
     fn weak_self_cyclic() {
         {
-        struct Cycle {
-            x: RefCell<Option<Weak<Cycle>>>
-        }
+            struct Cycle {
+                x: RefCell<Option<Weak<Cycle>>>,
+            }
 
-        impl Trace for Cycle {
-            fn trace(&self, _: &mut Tracer) { }
-        }
+            impl Trace for Cycle {
+                fn trace(&self, _: &mut Tracer) {}
+            }
 
-        let a = Cc::new(Cycle { x: RefCell::new(None) });
-        let b = a.clone().downgrade();
-        *a.x.borrow_mut() = Some(b);
+            let a = Cc::new(Cycle {
+                x: RefCell::new(None),
+            });
+            let b = a.clone().downgrade();
+            *a.x.borrow_mut() = Some(b);
         }
         collect_cycles();
         // hopefully we don't double-free (or leak)...
@@ -1004,16 +1006,16 @@ mod tests {
     #[test]
     fn is_unique() {
         {
-        let x = Cc::new(3);
-        assert!(x.is_unique());
-        let y = x.clone();
-        assert!(!x.is_unique());
-        drop(y);
-        assert!(x.is_unique());
-        let w = x.downgrade();
-        assert!(!x.is_unique());
-        drop(w);
-        assert!(x.is_unique());
+            let x = Cc::new(3);
+            assert!(x.is_unique());
+            let y = x.clone();
+            assert!(!x.is_unique());
+            drop(y);
+            assert!(x.is_unique());
+            let w = x.downgrade();
+            assert!(!x.is_unique());
+            drop(w);
+            assert!(x.is_unique());
         }
         collect_cycles();
     }
@@ -1021,19 +1023,19 @@ mod tests {
     #[test]
     fn test_strong_count() {
         {
-        let a = Cc::new(0u32);
-        assert!(a.strong_count() == 1);
-        let w = a.downgrade();
-        assert!(a.strong_count() == 1);
-        let b = w.upgrade().expect("upgrade of live rc failed");
-        assert!(b.strong_count() == 2);
-        assert!(b.strong_count() == 2);
-        drop(w);
-        drop(a);
-        assert!(b.strong_count() == 1);
-        let c = b.clone();
-        assert!(b.strong_count() == 2);
-        assert!(c.strong_count() == 2);
+            let a = Cc::new(0u32);
+            assert!(a.strong_count() == 1);
+            let w = a.downgrade();
+            assert!(a.strong_count() == 1);
+            let b = w.upgrade().expect("upgrade of live rc failed");
+            assert!(b.strong_count() == 2);
+            assert!(b.strong_count() == 2);
+            drop(w);
+            drop(a);
+            assert!(b.strong_count() == 1);
+            let c = b.clone();
+            assert!(b.strong_count() == 2);
+            assert!(c.strong_count() == 2);
         }
         collect_cycles();
     }
@@ -1041,19 +1043,19 @@ mod tests {
     #[test]
     fn test_weak_count() {
         {
-        let a = Cc::new(0u32);
-        assert!(a.strong_count() == 1);
-        assert!(a.weak_count() == 0);
-        let w = a.downgrade();
-        assert!(a.strong_count() == 1);
-        assert!(a.weak_count() == 1);
-        drop(w);
-        assert!(a.strong_count() == 1);
-        assert!(a.weak_count() == 0);
-        let c = a.clone();
-        assert!(a.strong_count() == 2);
-        assert!(a.weak_count() == 0);
-        drop(c);
+            let a = Cc::new(0u32);
+            assert!(a.strong_count() == 1);
+            assert!(a.weak_count() == 0);
+            let w = a.downgrade();
+            assert!(a.strong_count() == 1);
+            assert!(a.weak_count() == 1);
+            drop(w);
+            assert!(a.strong_count() == 1);
+            assert!(a.weak_count() == 0);
+            let c = a.clone();
+            assert!(a.strong_count() == 2);
+            assert!(a.weak_count() == 0);
+            drop(c);
         }
         collect_cycles();
     }
@@ -1061,14 +1063,14 @@ mod tests {
     #[test]
     fn try_unwrap() {
         {
-        let x = Cc::new(3);
-        assert_eq!(x.try_unwrap(), Ok(3));
-        let x = Cc::new(4);
-        let _y = x.clone();
-        assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
-        let x = Cc::new(5);
-        let _w = x.downgrade();
-        assert_eq!(x.try_unwrap(), Err(Cc::new(5)));
+            let x = Cc::new(3);
+            assert_eq!(x.try_unwrap(), Ok(3));
+            let x = Cc::new(4);
+            let _y = x.clone();
+            assert_eq!(x.try_unwrap(), Err(Cc::new(4)));
+            let x = Cc::new(5);
+            let _w = x.downgrade();
+            assert_eq!(x.try_unwrap(), Err(Cc::new(5)));
         }
         collect_cycles();
     }
@@ -1076,43 +1078,42 @@ mod tests {
     #[test]
     fn get_mut() {
         {
-        let mut x = Cc::new(3);
-        *x.get_mut().unwrap() = 4;
-        assert_eq!(*x, 4);
-        let y = x.clone();
-        assert!(x.get_mut().is_none());
-        drop(y);
-        assert!(x.get_mut().is_some());
-        let _w = x.downgrade();
-        assert!(x.get_mut().is_none());
+            let mut x = Cc::new(3);
+            *x.get_mut().unwrap() = 4;
+            assert_eq!(*x, 4);
+            let y = x.clone();
+            assert!(x.get_mut().is_none());
+            drop(y);
+            assert!(x.get_mut().is_some());
+            let _w = x.downgrade();
+            assert!(x.get_mut().is_none());
         }
         collect_cycles();
     }
 
-
     #[test]
     fn test_cowrc_clone_make_unique() {
         {
-        let mut cow0 = Cc::new(75);
-        let mut cow1 = cow0.clone();
-        let mut cow2 = cow1.clone();
+            let mut cow0 = Cc::new(75);
+            let mut cow1 = cow0.clone();
+            let mut cow2 = cow1.clone();
 
-        assert!(75 == *cow0.make_unique());
-        assert!(75 == *cow1.make_unique());
-        assert!(75 == *cow2.make_unique());
+            assert!(75 == *cow0.make_unique());
+            assert!(75 == *cow1.make_unique());
+            assert!(75 == *cow2.make_unique());
 
-        *cow0.make_unique() += 1;
-        *cow1.make_unique() += 2;
-        *cow2.make_unique() += 3;
+            *cow0.make_unique() += 1;
+            *cow1.make_unique() += 2;
+            *cow2.make_unique() += 3;
 
-        assert!(76 == *cow0);
-        assert!(77 == *cow1);
-        assert!(78 == *cow2);
+            assert!(76 == *cow0);
+            assert!(77 == *cow1);
+            assert!(78 == *cow2);
 
-        // none should point to the same backing memory
-        assert!(*cow0 != *cow1);
-        assert!(*cow0 != *cow2);
-        assert!(*cow1 != *cow2);
+            // none should point to the same backing memory
+            assert!(*cow0 != *cow1);
+            assert!(*cow0 != *cow2);
+            assert!(*cow1 != *cow2);
         }
         collect_cycles();
     }
@@ -1120,25 +1121,25 @@ mod tests {
     #[test]
     fn test_cowrc_clone_unique2() {
         {
-        let mut cow0 = Cc::new(75);
-        let cow1 = cow0.clone();
-        let cow2 = cow1.clone();
+            let mut cow0 = Cc::new(75);
+            let cow1 = cow0.clone();
+            let cow2 = cow1.clone();
 
-        assert!(75 == *cow0);
-        assert!(75 == *cow1);
-        assert!(75 == *cow2);
+            assert!(75 == *cow0);
+            assert!(75 == *cow1);
+            assert!(75 == *cow2);
 
-        *cow0.make_unique() += 1;
+            *cow0.make_unique() += 1;
 
-        assert!(76 == *cow0);
-        assert!(75 == *cow1);
-        assert!(75 == *cow2);
+            assert!(76 == *cow0);
+            assert!(75 == *cow1);
+            assert!(75 == *cow2);
 
-        // cow1 and cow2 should share the same contents
-        // cow0 should have a unique reference
-        assert!(*cow0 != *cow1);
-        assert!(*cow0 != *cow2);
-        assert!(*cow1 == *cow2);
+            // cow1 and cow2 should share the same contents
+            // cow0 should have a unique reference
+            assert!(*cow0 != *cow1);
+            assert!(*cow0 != *cow2);
+            assert!(*cow1 == *cow2);
         }
         collect_cycles();
     }
@@ -1146,16 +1147,16 @@ mod tests {
     #[test]
     fn test_cowrc_clone_weak() {
         {
-        let mut cow0 = Cc::new(75);
-        let cow1_weak = cow0.downgrade();
+            let mut cow0 = Cc::new(75);
+            let cow1_weak = cow0.downgrade();
 
-        assert!(75 == *cow0);
-        assert!(75 == *cow1_weak.upgrade().unwrap());
+            assert!(75 == *cow0);
+            assert!(75 == *cow1_weak.upgrade().unwrap());
 
-        *cow0.make_unique() += 1;
+            *cow0.make_unique() += 1;
 
-        assert!(76 == *cow0);
-        assert!(cow1_weak.upgrade().is_none());
+            assert!(76 == *cow0);
+            assert!(cow1_weak.upgrade().is_none());
         }
         collect_cycles();
     }
