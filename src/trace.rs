@@ -61,9 +61,21 @@ mod impls {
             (),
         }
 
-        impl<'a, T: Trace> Trace for &'a mut [T] {
+        impl<T: Trace + ?Sized> Trace for &'_ T {
             fn trace(&self, tracer: &mut Tracer) {
-                for t in &self[..] {
+                (**self).trace(tracer)
+            }
+        }
+
+        impl<T: Trace + ?Sized> Trace for &'_ mut T {
+            fn trace(&self, tracer: &mut Tracer) {
+                (**self).trace(tracer)
+            }
+        }
+
+        impl<T: Trace> Trace for [T] {
+            fn trace(&self, tracer: &mut Tracer) {
+                for t in self {
                     t.trace(tracer);
                 }
             }
