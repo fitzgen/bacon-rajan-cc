@@ -7,10 +7,11 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::ptr::NonNull;
-use std::cell::RefCell;
+use core::cell::RefCell;
+use core::ptr::NonNull;
 
-use cc_box_ptr::{CcBoxPtr, free};
+use cc_box_ptr::{free, CcBoxPtr};
+
 use super::Color;
 
 thread_local!(static ROOTS: RefCell<Vec<NonNull<dyn CcBoxPtr>>> = RefCell::new(vec![]));
@@ -275,7 +276,7 @@ fn scan_roots() {
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         for s in &mut *v {
-            let p : &dyn CcBoxPtr = unsafe { s.as_ref() };
+            let p: &dyn CcBoxPtr = unsafe { s.as_ref() };
             scan(p);
         }
     });
@@ -307,7 +308,7 @@ fn collect_roots() {
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         for s in v.drain(..) {
-            let ptr : &dyn CcBoxPtr = unsafe { s.as_ref() };
+            let ptr: &dyn CcBoxPtr = unsafe { s.as_ref() };
             ptr.data().buffered.set(false);
             collect_white(ptr, &mut white);
         }
@@ -321,14 +322,14 @@ fn collect_roots() {
         // so we'll end up decrementing twice. To avoid that, we increment the count
         // just before calling drop() so that it balances out. This is another difference
         // from the original paper caused by having destructors that we need to run.
-        let ptr : &dyn CcBoxPtr = unsafe { i.as_ref() };
+        let ptr: &dyn CcBoxPtr = unsafe { i.as_ref() };
         ptr.trace(&mut |t| {
             if t.strong() > 0 {
                 t.data().strong.set(t.strong() + 1)
             }
         });
-        unsafe { crate::drop_value(*i); }
-        unsafe { free(*i); }
+        unsafe { crate::drop_value(*i) };
+        unsafe { free(*i) };
     }
 
     // It's now safe to deallocate the memory as long as we are the last weak reference.
