@@ -407,11 +407,15 @@ impl<T: 'static + Trace> Cc<T> {
 
     /// Get the number of strong references to this value.
     #[inline]
-    pub fn strong_count(&self) -> usize { self.strong() }
+    pub fn strong_count(&self) -> usize {
+        self.strong()
+    }
 
     /// Get the number of weak references to this value.
     #[inline]
-    pub fn weak_count(&self) -> usize { self.weak() - 1 }
+    pub fn weak_count(&self) -> usize {
+        self.weak() - 1
+    }
 }
 
 impl<T: 'static + Clone + Trace> Cc<T> {
@@ -576,7 +580,9 @@ impl<T: PartialEq + Trace> PartialEq for Cc<T> {
     /// five == Cc::new(5);
     /// ```
     #[inline(always)]
-    fn eq(&self, other: &Cc<T>) -> bool { **self == **other }
+    fn eq(&self, other: &Cc<T>) -> bool {
+        **self == **other
+    }
 
     /// Inequality for two `Cc<T>`s.
     ///
@@ -592,7 +598,9 @@ impl<T: PartialEq + Trace> PartialEq for Cc<T> {
     /// five != Cc::new(5);
     /// ```
     #[inline(always)]
-    fn ne(&self, other: &Cc<T>) -> bool { **self != **other }
+    fn ne(&self, other: &Cc<T>) -> bool {
+        **self != **other
+    }
 }
 
 impl<T: Eq + Trace> Eq for Cc<T> {}
@@ -630,7 +638,9 @@ impl<T: PartialOrd + Trace> PartialOrd for Cc<T> {
     /// five < Cc::new(5);
     /// ```
     #[inline(always)]
-    fn lt(&self, other: &Cc<T>) -> bool { **self < **other }
+    fn lt(&self, other: &Cc<T>) -> bool {
+        **self < **other
+    }
 
     /// 'Less-than or equal to' comparison for two `Cc<T>`s.
     ///
@@ -646,7 +656,9 @@ impl<T: PartialOrd + Trace> PartialOrd for Cc<T> {
     /// five <= Cc::new(5);
     /// ```
     #[inline(always)]
-    fn le(&self, other: &Cc<T>) -> bool { **self <= **other }
+    fn le(&self, other: &Cc<T>) -> bool {
+        **self <= **other
+    }
 
     /// Greater-than comparison for two `Cc<T>`s.
     ///
@@ -662,7 +674,9 @@ impl<T: PartialOrd + Trace> PartialOrd for Cc<T> {
     /// five > Cc::new(5);
     /// ```
     #[inline(always)]
-    fn gt(&self, other: &Cc<T>) -> bool { **self > **other }
+    fn gt(&self, other: &Cc<T>) -> bool {
+        **self > **other
+    }
 
     /// 'Greater-than or equal to' comparison for two `Cc<T>`s.
     ///
@@ -678,7 +692,9 @@ impl<T: PartialOrd + Trace> PartialOrd for Cc<T> {
     /// five >= Cc::new(5);
     /// ```
     #[inline(always)]
-    fn ge(&self, other: &Cc<T>) -> bool { **self >= **other }
+    fn ge(&self, other: &Cc<T>) -> bool {
+        **self >= **other
+    }
 }
 
 impl<T: Ord + Trace> Ord for Cc<T> {
@@ -696,7 +712,9 @@ impl<T: Ord + Trace> Ord for Cc<T> {
     /// five.partial_cmp(&Cc::new(5));
     /// ```
     #[inline]
-    fn cmp(&self, other: &Cc<T>) -> Ordering { (**self).cmp(&**other) }
+    fn cmp(&self, other: &Cc<T>) -> Ordering {
+        (**self).cmp(&**other)
+    }
 }
 
 // FIXME (#18248) Make `T` `Sized?`
@@ -891,8 +909,9 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
 // added to the ROOTS table
 impl<T: Trace> CcBoxPtr for CcBox<T> {
     #[inline(always)]
-    fn data(&self) -> &CcBoxData { &self.data }
-
+    fn data(&self) -> &CcBoxData {
+        &self.data
+    }
 }
 
 unsafe fn deallocate(ptr: NonNull<dyn CcBoxPtr>) {
