@@ -28,66 +28,37 @@ mod impls {
     pub use super::*;
 
     mod primitives {
-        pub use super::*;
+        use super::*;
 
-        impl Trace for bool {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        macro_rules! impl_prim {
+            ($($t:ty,)*) => {
+                $(
+                    impl Trace for $t {
+                        fn trace(&self, _tracer: &mut Tracer) {}
+                    }
+                )*
+            }
         }
 
-        impl Trace for char {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for f32 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for f64 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for i16 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for i32 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for i64 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for i8 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for isize {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for str {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for u16 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for u32 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for u64 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for u8 {
-            fn trace(&self, _tracer: &mut Tracer) { }
-        }
-
-        impl Trace for usize {
-            fn trace(&self, _tracer: &mut Tracer) { }
+        impl_prim! {
+            bool,
+            char,
+            f32,
+            f64,
+            i8,
+            i16,
+            i32,
+            i64,
+            i128,
+            isize,
+            u8,
+            u16,
+            u32,
+            u64,
+            u128,
+            usize,
+            str,
+            (),
         }
 
         impl<'a, T: Trace> Trace for &'a mut [T] {
