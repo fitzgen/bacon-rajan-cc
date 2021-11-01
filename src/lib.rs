@@ -34,26 +34,26 @@
 //! use bacon_rajan_cc::{Cc, Trace, Tracer, collect_cycles};
 //!
 //! struct Owner {
-//!     name: String
+//!     name: String,
 //!     // ...other fields
 //! }
 //!
 //! impl Trace for Owner {
 //!     // Note: nothing to trace since `Owner` doesn't own any Cc<T> things.
-//!     fn trace(&self, _tracer: &mut Tracer) { }
+//!     fn trace(&self, _tracer: &mut Tracer) {}
 //! }
 //!
 //! struct Gadget {
 //!     id: i32,
-//!     owner: Cc<Owner>
+//!     owner: Cc<Owner>,
 //!     // ...other fields
 //! }
 //!
 //! fn main() {
 //!     // Create a reference counted Owner.
-//!     let gadget_owner : Cc<Owner> = Cc::new(
-//!             Owner { name: String::from("Gadget Man") }
-//!     );
+//!     let gadget_owner: Cc<Owner> = Cc::new(Owner {
+//!         name: String::from("Gadget Man"),
+//!     });
 //!
 //!     // Create Gadgets belonging to gadget_owner. To increment the reference
 //!     // count we clone the `Cc<T>` object.
@@ -103,17 +103,17 @@
 //!
 //! struct Owner {
 //!     name: String,
-//!     gadgets: RefCell<Vec<Weak<Gadget>>>
+//!     gadgets: RefCell<Vec<Weak<Gadget>>>,
 //!     // ...other fields
 //! }
 //!
 //! impl Trace for Owner {
-//!     fn trace(&self, _tracer: &mut Tracer) { }
+//!     fn trace(&self, _tracer: &mut Tracer) {}
 //! }
 //!
 //! struct Gadget {
 //!     id: i32,
-//!     owner: Cc<Owner>
+//!     owner: Cc<Owner>,
 //!     // ...other fields
 //! }
 //!
@@ -127,16 +127,14 @@
 //!     // Create a reference counted Owner. Note the fact that we've put the
 //!     // Owner's vector of Gadgets inside a RefCell so that we can mutate it
 //!     // through a shared reference.
-//!     let gadget_owner : Cc<Owner> = Cc::new(
-//!             Owner {
-//!                 name: "Gadget Man".to_string(),
-//!                 gadgets: RefCell::new(Vec::new())
-//!             }
-//!     );
+//!     let gadget_owner: Cc<Owner> = Cc::new(Owner {
+//!         name: "Gadget Man".to_string(),
+//!         gadgets: RefCell::new(Vec::new()),
+//!     });
 //!
 //!     // Create Gadgets belonging to gadget_owner as before.
-//!     let gadget1 = Cc::new(Gadget{id: 1, owner: gadget_owner.clone()});
-//!     let gadget2 = Cc::new(Gadget{id: 2, owner: gadget_owner.clone()});
+//!     let gadget1 = Cc::new(Gadget { id: 1, owner: gadget_owner.clone() });
+//!     let gadget2 = Cc::new(Gadget { id: 2, owner: gadget_owner.clone() });
 //!
 //!     // Add the Gadgets to their Owner. To do this we mutably borrow from
 //!     // the RefCell holding the Owner's Gadgets.
