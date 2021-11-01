@@ -165,22 +165,16 @@
 #![deny(missing_docs)]
 
 extern crate core;
-use core::cell::Cell;
-use core::clone::Clone;
-use core::cmp::{PartialEq, PartialOrd, Eq, Ord, Ordering};
-use core::default::Default;
-use core::fmt;
-use core::hash::{Hasher, Hash};
-use core::mem::forget;
-use std::ptr::NonNull;
-use core::ops::{Deref, Drop};
-use core::option::Option;
-use core::option::Option::{Some, None};
-use core::ptr;
-use core::result::Result;
-use core::result::Result::{Ok, Err};
 
-use std::alloc::{dealloc, Layout};
+use core::alloc::Layout;
+use core::cell::Cell;
+use core::cmp::Ordering;
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::mem::forget;
+use core::ops::Deref;
+use core::ptr::{self, NonNull};
+use std::alloc::dealloc;
 
 /// Tracing traits, types, and implementation.
 pub mod trace;
@@ -259,13 +253,13 @@ impl<T: Trace> Cc<T> {
                 // the allocation while the strong destructor is running, even
                 // if the weak pointer is stored inside the strong one.
                 _ptr: NonNull::new_unchecked(Box::into_raw(Box::new(CcBox {
-                    value: value,
+                    value,
                     data: CcBoxData {
                         strong: Cell::new(1),
                         weak: Cell::new(1),
                         buffered: Cell::new(false),
                         color: Cell::new(Color::Black),
-                    }
+                    },
                 }))),
             }
         }
@@ -318,7 +312,7 @@ impl<T: Trace> Cc<T> {
         }
 
         self.data().buffered.set(true);
-        let ptr : NonNull<dyn CcBoxPtr> = self._ptr;
+        let ptr: NonNull<dyn CcBoxPtr> = self._ptr;
         collect::add_root(ptr);
     }
 }
@@ -481,9 +475,7 @@ impl<T: Trace> Deref for Cc<T> {
     #[inline(always)]
     fn deref(&self) -> &T {
         if self.strong_count() > 0 {
-            unsafe {
-                &self._ptr.as_ref().value
-            }
+            unsafe { &self._ptr.as_ref().value }
         } else {
             panic!("Invalid access during cycle collection");
         }
@@ -531,7 +523,6 @@ impl<T: Trace> Drop for Cc<T> {
 }
 
 impl<T: Trace> Clone for Cc<T> {
-
     /// Makes a clone of the `Cc<T>`.
     ///
     /// When you clone an `Cc<T>`, it will create another pointer to the data and
@@ -746,7 +737,6 @@ pub struct Weak<T: Trace> {
 }
 
 impl<T: Trace> Weak<T> {
-
     /// Upgrades a weak reference to a strong reference.
     ///
     /// Upgrades the `Weak<T>` reference to an `Cc<T>`, if possible.
@@ -818,7 +808,6 @@ impl<T: Trace> Drop for Weak<T> {
 }
 
 impl<T: Trace> Clone for Weak<T> {
-
     /// Makes a clone of the `Weak<T>`.
     ///
     /// This increases the weak reference count.
@@ -877,7 +866,6 @@ impl<T: Trace> CcBoxPtr for Cc<T> {
             &self._ptr.as_ref().data
         }
     }
-
 }
 
 impl<T: Trace> CcBoxPtr for Weak<T> {
@@ -897,7 +885,6 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
             &(*self._ptr.as_ptr()).data
         }
     }
-
 }
 
 // We also implement CcBoxPtr on CcBox so we can add and operate on type erased CcBox's
@@ -918,15 +905,9 @@ pub(crate) unsafe fn drop_value(ptr: NonNull<dyn CcBoxPtr>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cc, Weak, Trace, Tracer};
-    use std::boxed::Box;
-    use std::cell::RefCell;
-    use std::option::Option;
-    use std::option::Option::{Some, None};
-    use std::result::Result::{Err, Ok};
-    use std::mem::drop;
-    use std::clone::Clone;
-    use collect::collect_cycles;
+    use core::cell::RefCell;
+
+    use super::{collect_cycles, Cc, Trace, Tracer, Weak};
 
     // Tests copied from `Rc<T>`.
 
@@ -1211,11 +1192,13 @@ mod tests {
                 x: Cc<RefCell<Option<A>>>,
             }
             struct WeakA {
-                _x: Weak<RefCell<Option<A>>>
+                _x: Weak<RefCell<Option<A>>>,
             }
             impl A {
                 fn downgrade(this: &Self) -> WeakA {
-                    WeakA { _x: Cc::downgrade(&this.x) }
+                    WeakA {
+                        _x: Cc::downgrade(&this.x),
+                    }
                 }
             }
             impl Clone for A {
@@ -1228,7 +1211,9 @@ mod tests {
                     self.x.trace(tracer);
                 }
             }
-            let a = A { x: Cc::new(RefCell::new(None)) };
+            let a = A {
+                x: Cc::new(RefCell::new(None)),
+            };
             *a.x.borrow_mut() = Some(a.clone());
             retained_weak_a = A::downgrade(&a);
         }
@@ -1260,14 +1245,14 @@ mod tests {
         let count = std::rc::Rc::new(std::cell::Cell::new(0));
         struct A {
             count: std::rc::Rc<std::cell::Cell<i32>>,
-            next_op: Cc<RefCell<Option<A>>>
+            next_op: Cc<RefCell<Option<A>>>,
         }
         impl Clone for A {
             fn clone(&self) -> Self {
                 self.count.set(self.count.get() + 1);
                 A {
                     count: self.count.clone(),
-                    next_op: self.next_op.clone()
+                    next_op: self.next_op.clone(),
                 }
             }
         }
@@ -1281,7 +1266,7 @@ mod tests {
                 count.set(count.get() + 1);
                 A {
                     count,
-                    next_op: Cc::new(RefCell::new(next_op))
+                    next_op: Cc::new(RefCell::new(next_op)),
                 }
             }
         }
@@ -1381,7 +1366,7 @@ mod tests {
     fn weak_cycle() {
         type Owner = RefCell<Option<Weak<Gadget>>>;
         struct Gadget {
-            owner: Cc<Owner>
+            owner: Cc<Owner>,
         }
 
         impl Trace for Gadget {
@@ -1391,7 +1376,9 @@ mod tests {
         }
 
         let gadget_owner = Cc::new(RefCell::new(None));
-        let gadget = Cc::new(Gadget{owner: gadget_owner.clone()});
+        let gadget = Cc::new(Gadget {
+            owner: gadget_owner.clone(),
+        });
 
         *gadget_owner.borrow_mut() = Some(gadget.clone().downgrade());
 
