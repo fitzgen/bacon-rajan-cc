@@ -81,76 +81,18 @@ mod impls {
             }
         }
 
-        mod arrays {
-            pub use super::*;
+        // requires 1.51
+        // mod arrays {
+        //     use super::*;
 
-            // impl<T: Trace> Trace for [T; 0] {
-            // }
-            // impl<T: Trace> Trace for [T; 1] {
-            // }
-            // impl<T: Trace> Trace for [T; 2] {
-            // }
-            // impl<T: Trace> Trace for [T; 3] {
-            // }
-            // impl<T: Trace> Trace for [T; 4] {
-            // }
-            // impl<T: Trace> Trace for [T; 5] {
-            // }
-            // impl<T: Trace> Trace for [T; 6] {
-            // }
-            // impl<T: Trace> Trace for [T; 7] {
-            // }
-            // impl<T: Trace> Trace for [T; 8] {
-            // }
-            // impl<T: Trace> Trace for [T; 9] {
-            // }
-            // impl<T: Trace> Trace for [T; 10] {
-            // }
-            // impl<T: Trace> Trace for [T; 11] {
-            // }
-            // impl<T: Trace> Trace for [T; 12] {
-            // }
-            // impl<T: Trace> Trace for [T; 13] {
-            // }
-            // impl<T: Trace> Trace for [T; 14] {
-            // }
-            // impl<T: Trace> Trace for [T; 15] {
-            // }
-            // impl<T: Trace> Trace for [T; 16] {
-            // }
-            // impl<T: Trace> Trace for [T; 17] {
-            // }
-            // impl<T: Trace> Trace for [T; 18] {
-            // }
-            // impl<T: Trace> Trace for [T; 19] {
-            // }
-            // impl<T: Trace> Trace for [T; 20] {
-            // }
-            // impl<T: Trace> Trace for [T; 21] {
-            // }
-            // impl<T: Trace> Trace for [T; 22] {
-            // }
-            // impl<T: Trace> Trace for [T; 23] {
-            // }
-            // impl<T: Trace> Trace for [T; 24] {
-            // }
-            // impl<T: Trace> Trace for [T; 25] {
-            // }
-            // impl<T: Trace> Trace for [T; 26] {
-            // }
-            // impl<T: Trace> Trace for [T; 27] {
-            // }
-            // impl<T: Trace> Trace for [T; 28] {
-            // }
-            // impl<T: Trace> Trace for [T; 29] {
-            // }
-            // impl<T: Trace> Trace for [T; 30] {
-            // }
-            // impl<T: Trace> Trace for [T; 31] {
-            // }
-            // impl<T: Trace> Trace for [T; 32] {
-            // }
-        }
+        //     impl<T: Trace, const N: usize> Trace for [T; N] {
+        //         fn trace(&self, tracer: &mut Tracer) {
+        //             for t in self {
+        //                 t.trace(tracer);
+        //             }
+        //         }
+        //     }
+        // }
 
         mod tuples {
             use super::*;
