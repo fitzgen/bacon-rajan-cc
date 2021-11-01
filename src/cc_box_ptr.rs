@@ -9,9 +9,8 @@
 
 use core::ptr::NonNull;
 
-use trace::Trace;
-
-use super::{CcBoxData, Color};
+use crate::trace::Trace;
+use crate::{CcBoxData, Color};
 
 /// A trait to group all of the operations we need to be able to do on
 /// `CcBox<T>`'s, potentially across different T types.
