@@ -48,13 +48,16 @@ pub fn add_root(box_ptr: NonNull<dyn CcBoxPtr>) {
 ///
 /// impl Trace for Gadget {
 ///     fn trace(&self, tracer: &mut Tracer) {
-///          self.parent.trace(tracer);
-///          self.children.trace(tracer);
+///         self.parent.trace(tracer);
+///         self.children.trace(tracer);
 ///     }
 /// }
 ///
 /// fn add_child(parent: &mut Cc<RefCell<Gadget>>) -> Cc<RefCell<Gadget>> {
-///     let child = Cc::new(RefCell::new(Gadget { parent: None, children: vec!() }));
+///     let child = Cc::new(RefCell::new(Gadget {
+///         parent: None,
+///         children: vec![],
+///     }));
 ///     child.borrow_mut().parent = Some(parent.clone());
 ///     parent.borrow_mut().children.push(child.clone());
 ///     child
@@ -65,8 +68,11 @@ pub fn add_root(box_ptr: NonNull<dyn CcBoxPtr>) {
 ///     assert_eq!(number_of_roots_buffered(), 0);
 ///
 ///     {
-///         let mut parent = Cc::new(RefCell::new(Gadget { parent: None, children: vec!() }));
-///         let mut children = vec!();
+///         let mut parent = Cc::new(RefCell::new(Gadget {
+///             parent: None,
+///             children: vec![],
+///         }));
+///         let mut children = vec![];
 ///         for _ in 0..10 {
 ///             children.push(add_child(&mut parent));
 ///         }
@@ -81,8 +87,10 @@ pub fn add_root(box_ptr: NonNull<dyn CcBoxPtr>) {
 ///     // references between parents and children. However, because their
 ///     // reference counts were decremented when we left the block, they should
 ///     // be buffered for cycle collection.
-///     assert_eq!(number_of_roots_buffered(),
-///                1 /* parent */ + 10 /* children */);
+///     assert_eq!(
+///         number_of_roots_buffered(),
+///         1 /* parent */ + 10 /* children */
+///     );
 ///
 ///     // reclaim the cycle
 ///     bacon_rajan_cc::collect_cycles();
