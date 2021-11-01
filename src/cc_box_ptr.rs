@@ -21,16 +21,22 @@ pub trait CcBoxPtr: Trace {
 
     /// Get the color of this node.
     #[inline]
-    fn color(&self) -> Color { self.data().color.get() }
+    fn color(&self) -> Color {
+        self.data().color.get()
+    }
 
     /// Return true if this node is in the buffer of possible cycle roots, false
     /// otherwise.
     #[inline]
-    fn buffered(&self) -> bool { self.data().buffered.get() }
+    fn buffered(&self) -> bool {
+        self.data().buffered.get()
+    }
 
     /// Return the strong reference count.
     #[inline]
-    fn strong(&self) -> usize { self.data().strong.get() }
+    fn strong(&self) -> usize {
+        self.data().strong.get()
+    }
 
     /// Increment this node's strong reference count.
     #[inline]
@@ -41,20 +47,28 @@ pub trait CcBoxPtr: Trace {
 
     /// Decrement this node's strong reference count.
     #[inline]
-    fn dec_strong(&self) { self.data().strong.set(self.strong() - 1); }
+    fn dec_strong(&self) {
+        self.data().strong.set(self.strong() - 1);
+    }
 
     /// Get this node's weak reference count, including the "strong weak"
     /// reference.
     #[inline]
-    fn weak(&self) -> usize { self.data().weak.get() }
+    fn weak(&self) -> usize {
+        self.data().weak.get()
+    }
 
     /// Increment this node's weak reference count.
     #[inline]
-    fn inc_weak(&self) { self.data().weak.set(self.weak() + 1); }
+    fn inc_weak(&self) {
+        self.data().weak.set(self.weak() + 1);
+    }
 
     /// Decrement this node's weak reference count.
     #[inline]
-    fn dec_weak(&self) { self.data().weak.set(self.weak() - 1); }
+    fn dec_weak(&self) {
+        self.data().weak.set(self.weak() - 1);
+    }
 }
 
 /// Deallocate the box if possible. `s` should already have been dropped.
