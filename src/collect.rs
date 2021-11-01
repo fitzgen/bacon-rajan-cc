@@ -10,9 +10,8 @@
 use core::cell::RefCell;
 use core::ptr::NonNull;
 
-use cc_box_ptr::{free, CcBoxPtr};
-
-use super::Color;
+use crate::cc_box_ptr::{free, CcBoxPtr};
+use crate::Color;
 
 thread_local!(static ROOTS: RefCell<Vec<NonNull<dyn CcBoxPtr>>> = RefCell::new(vec![]));
 
