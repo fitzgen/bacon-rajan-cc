@@ -362,15 +362,15 @@ impl<T: 'static + Trace> Cc<T> {
     #[inline]
     pub fn try_unwrap(self) -> Result<T, Cc<T>> {
         if self.is_unique() {
-            unsafe {
+            
                 // Copy the contained object.
-                let val = ptr::read(&*self);
+                let val = unsafe { ptr::read(&*self) };
                 // Destruct the box and skip our Drop. We can ignore the
                 // refcounts because we know we're unique.
-                dealloc(self._ptr.cast().as_ptr(), Layout::new::<CcBox<T>>());
+                unsafe { dealloc(self._ptr.cast().as_ptr(), Layout::new::<CcBox<T>>()) };
                 forget(self);
                 Ok(val)
-            }
+            
         } else {
             Err(self)
         }
