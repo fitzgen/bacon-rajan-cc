@@ -119,7 +119,7 @@
 //!
 //! impl Trace for Gadget {
 //!     fn trace(&self, tracer: &mut Tracer) {
-//!         tracer(&self.owner);
+//!         Trace::trace(&self.owner, tracer);
 //!     }
 //! }
 //!
@@ -854,9 +854,7 @@ impl<T: fmt::Debug + Trace> fmt::Debug for Weak<T> {
 
 impl<T: Trace> Trace for Cc<T> {
     fn trace(&self, tracer: &mut Tracer) {
-        unsafe {
-            tracer(self._ptr.as_ref());
-        }
+            tracer(self._ptr);
     }
 }
 
@@ -1390,7 +1388,7 @@ mod tests {
 
         impl Trace for Gadget {
             fn trace(&self, tracer: &mut Tracer) {
-                tracer(&self.owner);
+                tracer(self.owner._ptr);
             }
         }
 

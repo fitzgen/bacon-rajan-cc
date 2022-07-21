@@ -210,8 +210,9 @@ fn mark_roots() {
         cc_box_ptr.data().color.set(Color::Gray);
 
         cc_box_ptr.trace(&mut |t| {
-            t.dec_strong();
-            mark_gray(t);
+            unsafe {            t.as_ref().dec_strong();
+            mark_gray(t.as_ref());
+            }
         });
     }
 
@@ -258,10 +259,12 @@ fn scan_roots() {
     fn scan_black(s: &dyn CcBoxPtr) {
         s.data().color.set(Color::Black);
         s.trace(&mut |t| {
-            t.data().strong.set(t.strong() + 1);
-            if t.color() != Color::Black {
-                scan_black(t);
+            unsafe {
+            t.as_ref().data().strong.set(t.as_ref().strong() + 1);
+            if t.as_ref().color() != Color::Black {
+                scan_black(t.as_ref());
             }
+        }
         });
     }
 
@@ -275,7 +278,9 @@ fn scan_roots() {
         } else {
             s.data().color.set(Color::White);
             s.trace(&mut |t| {
-                scan(t);
+                unsafe {
+                scan(t.as_ref());
+                }
             });
         }
     }
@@ -310,7 +315,8 @@ fn collect_roots() {
                 let r = unsafe { s.as_ref() };
                 r.data().color.set(Color::Black);
                 r.trace(&mut |t| {
-                    collect_white(s, white);
+                    //let f: *const _ = t as *const _;;
+                    collect_white(t.into(), white);
                 });
                 let r = unsafe { s.as_ref() };
                 r.inc_weak();
@@ -338,8 +344,10 @@ fn collect_roots() {
         // from the original paper caused by having destructors that we need to run.
         let ptr: &dyn CcBoxPtr = unsafe { i.as_ref() };
         ptr.trace(&mut |t| {
-            if t.strong() > 0 {
-                t.data().strong.set(t.strong() + 1)
+            unsafe {
+            if t.as_ref().strong() > 0 {
+                t.as_ref().data().strong.set(t.as_ref().strong() + 1)
+            }
             }
         });
         unsafe { crate::drop_value(*i) };
