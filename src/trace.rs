@@ -7,11 +7,13 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::ptr::NonNull;
+
 use crate::cc_box_ptr::CcBoxPtr;
 
 /// A `Tracer` is a callback function that is invoked for each `CcBoxPtr` owned
 /// by an instance of something.
-pub type Tracer<'a> = dyn FnMut(&(dyn CcBoxPtr + 'static)) + 'a;
+pub type Tracer<'a> = dyn FnMut(NonNull<dyn CcBoxPtr>) + 'a;
 
 /// A trait that informs cycle collector how to find memory that is owned by a
 /// `Trace` instance and managed by the cycle collector.

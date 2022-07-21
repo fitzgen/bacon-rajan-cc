@@ -210,6 +210,7 @@ fn mark_roots() {
         cc_box_ptr.data().color.set(Color::Gray);
 
         cc_box_ptr.trace(&mut |t| {
+            let t = unsafe { t.as_ref() };
             t.data().dec_strong();
             mark_gray(t);
         });
@@ -258,6 +259,7 @@ fn scan_roots() {
     fn scan_black(s: &dyn CcBoxPtr) {
         s.data().color.set(Color::Black);
         s.trace(&mut |t| {
+            let t = unsafe { t.as_ref() };
             t.data().strong.set(t.data().strong() + 1);
             if t.data().color() != Color::Black {
                 scan_black(t);
@@ -275,7 +277,7 @@ fn scan_roots() {
         } else {
             s.data().color.set(Color::White);
             s.trace(&mut |t| {
-                scan(t);
+                scan(unsafe { t.as_ref() });
             });
         }
     }
@@ -283,8 +285,7 @@ fn scan_roots() {
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
         for s in &mut *v {
-            let p: &dyn CcBoxPtr = unsafe { s.as_ref() };
-            scan(p);
+            scan(unsafe { s.as_ref() });
         }
     });
 }
@@ -301,22 +302,23 @@ fn collect_roots() {
     // ruins the rest of our traversal.
     let mut white = Vec::new();
 
-    fn collect_white(s: &(dyn CcBoxPtr + 'static), white: &mut Vec<NonNull<dyn CcBoxPtr>>) {
+    fn collect_white(ptr: NonNull<dyn CcBoxPtr>, white: &mut Vec<NonNull<dyn CcBoxPtr>>) {
+        let s = unsafe { ptr.as_ref() };
         if s.data().color() == Color::White && !s.data().buffered() {
             s.data().color.set(Color::Black);
             s.trace(&mut |t| {
                 collect_white(t, white);
             });
             s.data().inc_weak();
-            white.push(s.into());
+            white.push(ptr);
         }
     }
 
     ROOTS.with(|r| {
         let mut v = r.borrow_mut();
-        for s in v.drain(..) {
-            let ptr: &dyn CcBoxPtr = unsafe { s.as_ref() };
-            ptr.data().buffered.set(false);
+        for ptr in v.drain(..) {
+            let s: &dyn CcBoxPtr = unsafe { ptr.as_ref() };
+            s.data().buffered.set(false);
             collect_white(ptr, &mut white);
         }
     });
@@ -331,6 +333,7 @@ fn collect_roots() {
         // from the original paper caused by having destructors that we need to run.
         let ptr: &dyn CcBoxPtr = unsafe { i.as_ref() };
         ptr.trace(&mut |t| {
+            let t = unsafe { t.as_ref() };
             if t.data().strong() > 0 {
                 t.data().strong.set(t.data().strong() + 1)
             }

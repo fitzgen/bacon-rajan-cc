@@ -907,9 +907,7 @@ impl<T: fmt::Debug + Trace> fmt::Debug for Weak<T> {
 
 impl<T: Trace> Trace for Cc<T> {
     fn trace(&self, tracer: &mut Tracer) {
-        unsafe {
-            tracer(self._ptr.as_ref());
-        }
+        tracer(self._ptr);
     }
 }
 
