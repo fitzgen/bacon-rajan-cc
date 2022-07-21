@@ -301,14 +301,21 @@ fn collect_roots() {
     // ruins the rest of our traversal.
     let mut white = Vec::new();
 
-    fn collect_white(s: &(dyn CcBoxPtr + 'static), white: &mut Vec<NonNull<dyn CcBoxPtr>>) {
-        if s.color() == Color::White && !s.buffered() {
-            s.data().color.set(Color::Black);
-            s.trace(&mut |t| {
-                collect_white(t, white);
-            });
-            s.inc_weak();
-            white.push(s.into());
+    fn collect_white(s: NonNull<dyn CcBoxPtr>, white: &mut Vec<NonNull<dyn CcBoxPtr>>) {
+        let recurse = unsafe { let s = s.as_ref(); 
+            s.color() == Color::White && !s.buffered()
+        };
+        if recurse {
+            {
+                let r = unsafe { s.as_ref() };
+                r.data().color.set(Color::Black);
+                r.trace(&mut |t| {
+                    collect_white(s, white);
+                });
+                let r = unsafe { s.as_ref() };
+                r.inc_weak();
+            }
+            white.push(s);
         }
     }
 
@@ -317,7 +324,7 @@ fn collect_roots() {
         for s in v.drain(..) {
             let ptr: &dyn CcBoxPtr = unsafe { s.as_ref() };
             ptr.data().buffered.set(false);
-            collect_white(ptr, &mut white);
+            collect_white(s, &mut white);
         }
     });
 
