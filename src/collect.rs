@@ -203,14 +203,14 @@ pub fn collect_cycles() {
 /// `scan_roots`.
 fn mark_roots() {
     fn mark_gray(cc_box_ptr: &dyn CcBoxPtr) {
-        if cc_box_ptr.color() == Color::Gray {
+        if cc_box_ptr.data().color() == Color::Gray {
             return;
         }
 
         cc_box_ptr.data().color.set(Color::Gray);
 
         cc_box_ptr.trace(&mut |t| {
-            t.dec_strong();
+            t.data().dec_strong();
             mark_gray(t);
         });
     }
@@ -224,13 +224,13 @@ fn mark_roots() {
     let mut new_roots : Vec<_> = old_roots.into_iter().filter_map(|s| {
         let keep = unsafe {
             let box_ptr : &dyn CcBoxPtr = s.as_ref();
-            if box_ptr.color() == Color::Purple {
+            if box_ptr.data().color() == Color::Purple {
                 mark_gray(box_ptr);
                 true
             } else {
                 box_ptr.data().buffered.set(false);
 
-                if box_ptr.color() == Color::Black && box_ptr.strong() == 0 {
+                if box_ptr.data().color() == Color::Black && box_ptr.data().strong() == 0 {
                     free(s);
                 }
 
@@ -258,19 +258,19 @@ fn scan_roots() {
     fn scan_black(s: &dyn CcBoxPtr) {
         s.data().color.set(Color::Black);
         s.trace(&mut |t| {
-            t.data().strong.set(t.strong() + 1);
-            if t.color() != Color::Black {
+            t.data().strong.set(t.data().strong() + 1);
+            if t.data().color() != Color::Black {
                 scan_black(t);
             }
         });
     }
 
     fn scan(s: &dyn CcBoxPtr) {
-        if s.color() != Color::Gray {
+        if s.data().color() != Color::Gray {
             return;
         }
 
-        if s.strong() > 0 {
+        if s.data().strong() > 0 {
             scan_black(s);
         } else {
             s.data().color.set(Color::White);
@@ -302,12 +302,12 @@ fn collect_roots() {
     let mut white = Vec::new();
 
     fn collect_white(s: &(dyn CcBoxPtr + 'static), white: &mut Vec<NonNull<dyn CcBoxPtr>>) {
-        if s.color() == Color::White && !s.buffered() {
+        if s.data().color() == Color::White && !s.data().buffered() {
             s.data().color.set(Color::Black);
             s.trace(&mut |t| {
                 collect_white(t, white);
             });
-            s.inc_weak();
+            s.data().inc_weak();
             white.push(s.into());
         }
     }
@@ -331,8 +331,8 @@ fn collect_roots() {
         // from the original paper caused by having destructors that we need to run.
         let ptr: &dyn CcBoxPtr = unsafe { i.as_ref() };
         ptr.trace(&mut |t| {
-            if t.strong() > 0 {
-                t.data().strong.set(t.strong() + 1)
+            if t.data().strong() > 0 {
+                t.data().strong.set(t.data().strong() + 1)
             }
         });
         unsafe { crate::drop_value(*i) };
@@ -343,11 +343,11 @@ fn collect_roots() {
     for i in &white {
         unsafe {
             // Only deallocate if our weak reference is the only one.
-            if i.as_ref().weak() == 1 {
+            if i.as_ref().data().weak() == 1 {
                 crate::deallocate(*i);
             } else {
                 // undo s.inc_weak() from collect_white
-                i.as_ref().dec_weak();
+                i.as_ref().data().dec_weak();
             }
         }
     }

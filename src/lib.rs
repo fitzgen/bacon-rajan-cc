@@ -119,7 +119,7 @@
 //!
 //! impl Trace for Gadget {
 //!     fn trace(&self, tracer: &mut Tracer) {
-//!         tracer(&self.owner);
+//!         self.owner.trace(tracer);
 //!     }
 //! }
 //!
@@ -220,6 +220,59 @@ pub struct CcBoxData {
     color: Cell<Color>,
 }
 
+impl CcBoxData {
+    /// Get the color of this node.
+    #[inline]
+    fn color(&self) -> Color {
+        self.color.get()
+    }
+
+    /// Return true if this node is in the buffer of possible cycle roots, false
+    /// otherwise.
+    #[inline]
+    fn buffered(&self) -> bool {
+        self.buffered.get()
+    }
+
+    /// Return the strong reference count.
+    #[inline]
+    fn strong(&self) -> usize {
+        self.strong.get()
+    }
+
+    /// Increment this node's strong reference count.
+    #[inline]
+    fn inc_strong(&self) {
+        self.strong.set(self.strong() + 1);
+        self.color.set(Color::Black);
+    }
+
+    /// Decrement this node's strong reference count.
+    #[inline]
+    fn dec_strong(&self) {
+        self.strong.set(self.strong() - 1);
+    }
+
+    /// Get this node's weak reference count, including the "strong weak"
+    /// reference.
+    #[inline]
+    fn weak(&self) -> usize {
+        self.weak.get()
+    }
+
+    /// Increment this node's weak reference count.
+    #[inline]
+    fn inc_weak(&self) {
+        self.weak.set(self.weak() + 1);
+    }
+
+    /// Decrement this node's weak reference count.
+    #[inline]
+    fn dec_weak(&self) {
+        self.weak.set(self.weak() - 1);
+    }
+}
+
 #[derive(Debug)]
 struct CcBox<T: Trace> {
     value: T,
@@ -277,22 +330,22 @@ impl<T: Trace> Cc<T> {
     /// let weak_five = five.downgrade();
     /// ```
     pub fn downgrade(&self) -> Weak<T> {
-        self.inc_weak();
+        self.data().inc_weak();
         Weak { _ptr: self._ptr }
     }
 }
 
 impl<T: Trace> Cc<T> {
     unsafe fn release(&mut self) {
-        debug_assert!(self.strong() == 0);
+        debug_assert!(self.data().strong() == 0);
 
         crate::drop_value(self._ptr);
 
-        self.data().color.set(Color::Black);
+        self._ptr.as_ref().data().color.set(Color::Black);
 
         // If it is in the buffer, then it will be freed later in the
         // `mark_roots` procedure.
-        if self.buffered() {
+        if self.data().buffered() {
             return;
         }
 
@@ -300,14 +353,14 @@ impl<T: Trace> Cc<T> {
     }
 
     fn possible_root(&mut self) {
-        debug_assert!(self.strong() > 0);
+        debug_assert!(self.data().strong() > 0);
 
-        if self.color() == Color::Purple {
+        if self.data().color() == Color::Purple {
             return;
         }
 
         self.data().color.set(Color::Purple);
-        if self.buffered() {
+        if self.data().buffered() {
             return;
         }
 
@@ -408,13 +461,13 @@ impl<T: 'static + Trace> Cc<T> {
     /// Get the number of strong references to this value.
     #[inline]
     pub fn strong_count(&self) -> usize {
-        self.strong()
+        self.data().strong()
     }
 
     /// Get the number of weak references to this value.
     #[inline]
     pub fn weak_count(&self) -> usize {
-        self.weak() - 1
+        self.data().weak() - 1
     }
 }
 
@@ -514,9 +567,9 @@ impl<T: Trace> Drop for Cc<T> {
     /// ```
     fn drop(&mut self) {
         unsafe {
-            if self.strong() > 0 {
-                self.dec_strong();
-                if self.strong() == 0 {
+            if self.data().strong() > 0 {
+                self.data().dec_strong();
+                if self.data().strong() == 0 {
                     self.release();
                 } else {
                     self.possible_root();
@@ -544,7 +597,7 @@ impl<T: Trace> Clone for Cc<T> {
     /// ```
     #[inline]
     fn clone(&self) -> Cc<T> {
-        self.inc_strong();
+        self.data().inc_strong();
         Cc { _ptr: self._ptr }
     }
 }
@@ -776,10 +829,10 @@ impl<T: Trace> Weak<T> {
     /// collect_cycles();
     /// ```
     pub fn upgrade(&self) -> Option<Cc<T>> {
-        if self.strong() == 0 {
+        if self.data().strong() == 0 {
             None
         } else {
-            self.inc_strong();
+            self.data().inc_strong();
             Some(Cc { _ptr: self._ptr })
         }
     }
@@ -813,11 +866,11 @@ impl<T: Trace> Drop for Weak<T> {
     /// ```
     fn drop(&mut self) {
         unsafe {
-            if self.weak() > 0 {
-                self.dec_weak();
+            if self.data().weak() > 0 {
+                self.data().dec_weak();
                 // The weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
-                if self.weak() == 0 {
+                if self.data().weak() == 0 {
                     dealloc(self._ptr.cast().as_ptr(), Layout::new::<CcBox<T>>())
                 }
             }
@@ -841,7 +894,7 @@ impl<T: Trace> Clone for Weak<T> {
     /// ```
     #[inline]
     fn clone(&self) -> Weak<T> {
-        self.inc_weak();
+        self.data().inc_weak();
         Weak { _ptr: self._ptr }
     }
 }
@@ -872,8 +925,7 @@ impl<T: Trace> Trace for CcBox<T> {
     }
 }
 
-#[doc(hidden)]
-impl<T: Trace> CcBoxPtr for Cc<T> {
+impl<T: Trace> Cc<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData {
         unsafe {
@@ -886,7 +938,7 @@ impl<T: Trace> CcBoxPtr for Cc<T> {
     }
 }
 
-impl<T: Trace> CcBoxPtr for Weak<T> {
+impl<T: Trace> Weak<T> {
     #[inline(always)]
     fn data(&self) -> &CcBoxData {
         unsafe {
@@ -905,7 +957,7 @@ impl<T: Trace> CcBoxPtr for Weak<T> {
     }
 }
 
-// We also implement CcBoxPtr on CcBox so we can add and operate on type erased CcBox's
+// We implement CcBoxPtr on CcBox so we can add and operate on type erased CcBox's
 // added to the ROOTS table
 impl<T: Trace> CcBoxPtr for CcBox<T> {
     #[inline(always)]
@@ -1390,7 +1442,7 @@ mod tests {
 
         impl Trace for Gadget {
             fn trace(&self, tracer: &mut Tracer) {
-                tracer(&self.owner);
+                self.owner.trace(tracer);
             }
         }
 
@@ -1403,6 +1455,24 @@ mod tests {
 
         drop(gadget_owner);
         drop(gadget);
+        collect_cycles();
+    }
+
+    #[test]
+    fn clone_drop_collect() {
+        struct A {
+            a: Cc<i32>,
+        }
+
+        impl Trace for A {
+            fn trace(&self, tracer: &mut Tracer) {
+                self.a.trace(tracer);
+            }
+        }
+
+        let a = Cc::new(A { a: Cc::new(1) });
+        let b = Cc::clone(&a);
+        drop(b);
         collect_cycles();
     }
 }

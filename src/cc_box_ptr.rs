@@ -10,76 +10,25 @@
 use core::ptr::NonNull;
 
 use crate::trace::Trace;
-use crate::{CcBoxData, Color};
+use crate::CcBoxData;
 
 /// A trait to group all of the operations we need to be able to do on
 /// `CcBox<T>`'s, potentially across different T types.
 pub trait CcBoxPtr: Trace {
     /// Get this `CcBoxPtr`'s CcBoxData.
     fn data(&self) -> &CcBoxData;
-
-    /// Get the color of this node.
-    #[inline]
-    fn color(&self) -> Color {
-        self.data().color.get()
-    }
-
-    /// Return true if this node is in the buffer of possible cycle roots, false
-    /// otherwise.
-    #[inline]
-    fn buffered(&self) -> bool {
-        self.data().buffered.get()
-    }
-
-    /// Return the strong reference count.
-    #[inline]
-    fn strong(&self) -> usize {
-        self.data().strong.get()
-    }
-
-    /// Increment this node's strong reference count.
-    #[inline]
-    fn inc_strong(&self) {
-        self.data().strong.set(self.strong() + 1);
-        self.data().color.set(Color::Black);
-    }
-
-    /// Decrement this node's strong reference count.
-    #[inline]
-    fn dec_strong(&self) {
-        self.data().strong.set(self.strong() - 1);
-    }
-
-    /// Get this node's weak reference count, including the "strong weak"
-    /// reference.
-    #[inline]
-    fn weak(&self) -> usize {
-        self.data().weak.get()
-    }
-
-    /// Increment this node's weak reference count.
-    #[inline]
-    fn inc_weak(&self) {
-        self.data().weak.set(self.weak() + 1);
-    }
-
-    /// Decrement this node's weak reference count.
-    #[inline]
-    fn dec_weak(&self) {
-        self.data().weak.set(self.weak() - 1);
-    }
 }
 
 /// Deallocate the box if possible. `s` should already have been dropped.
 pub unsafe fn free(s: NonNull<dyn CcBoxPtr>) {
-    debug_assert!(s.as_ref().strong() == 0);
-    debug_assert!(!s.as_ref().buffered());
+    debug_assert!(s.as_ref().data().strong() == 0);
+    debug_assert!(!s.as_ref().data().buffered());
 
     // Remove the implicit "strong weak" pointer now that we've destroyed
     // the contents.
-    s.as_ref().dec_weak();
+    s.as_ref().data().dec_weak();
 
-    if s.as_ref().weak() == 0 {
+    if s.as_ref().data().weak() == 0 {
         crate::deallocate(s);
     }
 }
