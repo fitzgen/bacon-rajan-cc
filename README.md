@@ -1,8 +1,9 @@
 # bacon_rajan_cc
 
-[![Build Status](https://travis-ci.org/fitzgen/bacon-rajan-cc.png?branch=master)](https://travis-ci.org/fitzgen/bacon-rajan-cc)
-
-[![crates.io](http://meritbadge.herokuapp.com/bacon_rajan_cc)](https://crates.io/crates/bacon_rajan_cc)
+![Build Status](https://github.com/fitzgen/bacon-rajan-cc/workflows/Rust/badge.svg)
+[![Crates.io](https://img.shields.io/crates/v/bacon-rajan-cc.svg)](https://crates.io/crates/bacon-rajan-cc)
+[![Documentation](https://docs.rs/bacon-rajan-cc/badge.svg)](https://docs.rs/bacon-rajan-cc)
+[![Rust 1.34.2+](https://img.shields.io/badge/rust-1.34.2+-orange.svg)](https://www.rust-lang.org)
 
 `Cc<T>`: A reference counted type with cycle collection for Rust. Concurrent or
 stop-the-world. Based on the paper
