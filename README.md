@@ -37,6 +37,9 @@ use bacon_rajan_cc::{Cc, Trace, Tracer};
 [paper]: http://researcher.watson.ibm.com/researcher/files/us-bacon/Bacon01Concurrent.pdf
 [docs]: https://docs.rs/bacon_rajan_cc/
 
+## Future
+[Incremental cycle collection](https://bugzilla.mozilla.org/show_bug.cgi?id=850065#c0)
+
 ## Alternatives
 - https://github.com/jrmuizel/cc-mt (an experimental thread safe version of bacon-rajan-cc)
 - https://github.com/withoutboats/shifgrethor
