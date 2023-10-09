@@ -1320,6 +1320,7 @@ mod tests {
         }
         collect_cycles();
         let _x = retained_weak_a;
+        assert!(_x._x.upgrade().is_none());
     }
 
     #[test]
