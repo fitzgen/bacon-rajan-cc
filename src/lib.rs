@@ -166,6 +166,7 @@
 
 extern crate core;
 
+use cc_box_ptr::Dropable;
 use core::alloc::Layout;
 use core::cell::Cell;
 use core::cmp::Ordering;
@@ -962,14 +963,21 @@ impl<T: Trace> CcBoxPtr for CcBox<T> {
     fn data(&self) -> &CcBoxData {
         &self.data
     }
+
+    fn value(&mut self) -> &mut dyn Dropable {
+        &mut self.value
+    }
+
 }
+
 
 unsafe fn deallocate(ptr: NonNull<dyn CcBoxPtr>) {
     dealloc(ptr.cast().as_ptr(), Layout::for_value(ptr.as_ref()));
 }
 
-pub(crate) unsafe fn drop_value(ptr: NonNull<dyn CcBoxPtr>) {
-    ptr::drop_in_place(ptr.as_ptr());
+pub(crate) unsafe fn drop_value(mut ptr: NonNull<dyn CcBoxPtr>) {
+    let value = ptr.as_mut().value();
+    ptr::drop_in_place(value);
 }
 
 #[cfg(test)]
@@ -1249,6 +1257,30 @@ mod tests {
                 let mut b = b.borrow_mut();
                 b.0.push(a.clone());
             }
+        }
+        collect_cycles();
+    }
+
+    #[test]
+    fn self_cycle() {
+        {
+            struct A {
+                x: Cc<RefCell<Option<A>>>,
+            }
+            impl Clone for A {
+                fn clone(&self) -> Self {
+                    A { x: self.x.clone() }
+                }
+            }
+            impl Trace for A {
+                fn trace(&self, tracer: &mut Tracer) {
+                    self.x.trace(tracer);
+                }
+            }
+            let a = A {
+                x: Cc::new(RefCell::new(None)),
+            };
+            *a.x.borrow_mut() = Some(a.clone());
         }
         collect_cycles();
     }

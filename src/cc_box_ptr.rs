@@ -17,7 +17,21 @@ use crate::CcBoxData;
 pub trait CcBoxPtr: Trace {
     /// Get this `CcBoxPtr`'s CcBoxData.
     fn data(&self) -> &CcBoxData;
+    // Get a mutable reference the value inside this `CcBoxPtr`.
+    // We use this for calling Drop on the value instead of calling
+    // it on the `CcBoxPtr` directly, because we want to avoid holding
+    // a mutable reference to the entire type implementing `CcBoxPtr` 
+    // because we may need to access the data during a drop if there's
+    // a self cycle.
+    fn value(&mut self) -> &mut dyn Dropable;
 }
+
+// An empty trait object that we can use to call
+// ptr::drop_in_place on.
+pub trait Dropable {
+}
+// Implemented for everything
+impl<T> Dropable for T {}
 
 /// Deallocate the box if possible. `s` should already have been dropped.
 pub unsafe fn free(s: NonNull<dyn CcBoxPtr>) {
