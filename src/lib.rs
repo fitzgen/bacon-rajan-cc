@@ -984,6 +984,8 @@ pub(crate) unsafe fn drop_value(mut ptr: NonNull<dyn CcBoxPtr>) {
 mod tests {
     use core::cell::RefCell;
 
+    use crate::{number_of_roots_buffered, collect::free_dead_roots};
+
     use super::{collect_cycles, Cc, Trace, Tracer, Weak};
 
     // Tests copied from `Rc<T>`.
@@ -1505,5 +1507,18 @@ mod tests {
         let b = Cc::clone(&a);
         drop(b);
         collect_cycles();
+    }
+
+
+    #[test]
+    fn freeing_dead_roots() {
+        assert_eq!(number_of_roots_buffered(), 0);
+        let a = Cc::new(1);
+        let b = a.clone();
+        drop(b);
+        assert_eq!(number_of_roots_buffered(), 1);
+        drop(a);
+        free_dead_roots();
+        assert_eq!(number_of_roots_buffered(), 0);
     }
 }

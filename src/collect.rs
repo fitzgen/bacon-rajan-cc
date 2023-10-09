@@ -100,6 +100,26 @@ pub fn number_of_roots_buffered() -> usize {
     ROOTS.with(|r| r.borrow().len())
 }
 
+
+/// Free's all the of the roots that have a reference count of 0.
+/// This is much faster than doing a full cycle collection and will
+/// ensure that any memory that was never part of a cycle is freed.
+pub fn free_dead_roots() {
+    ROOTS.with(|r| {
+        let mut v = r.borrow_mut();
+        v.retain_mut(|root| {
+            let s: &dyn CcBoxPtr = unsafe { root.as_ref() };
+            if s.data().strong() == 0 {
+                s.data().buffered.set(false);
+                unsafe { free(*root) };
+                false
+            } else {
+                true
+            }
+        });
+    });
+}
+
 /// Invoke cycle collection for all `Cc<T>`s on this thread.
 ///
 /// You may wish to do this when the roots buffer reaches a certain size, when
